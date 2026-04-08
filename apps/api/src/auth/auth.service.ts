@@ -8,7 +8,7 @@ import { PrismaService } from "../prisma/prisma.service";
 type LoginResult = {
   accessToken: string;
   refreshToken: string;
-  user: { userId: string; role: string; employeeId?: string | null };
+  user: { userId: string; role: string; employeeId?: string | null; email: string; fullName: string | null };
 };
 
 function sha256Hex(input: string) {
@@ -80,7 +80,7 @@ export class AuthService {
       return {
         accessToken,
         refreshToken,
-        user: { userId: user.id, role: user.role, employeeId: user.employeeId },
+        user: { userId: user.id, role: user.role, employeeId: user.employeeId, email: user.email, fullName },
       };
     } catch (e) {
       if (e instanceof UnauthorizedException) throw e;
@@ -137,6 +137,8 @@ export class AuthService {
         userId: user.id,
         role: user.role,
         employeeId: user.employeeId,
+        email: user.email,
+        fullName: user.employee?.fullName ?? null,
       },
     };
   }
@@ -205,7 +207,7 @@ export class AuthService {
       return {
         accessToken: this.signAccessToken(user),
         refreshToken: newRefreshToken,
-        user: { userId: user.id, role: user.role, employeeId: user.employeeId },
+        user: { userId: user.id, role: user.role, employeeId: user.employeeId, email: user.email, fullName: user.employee?.fullName ?? null },
       };
     } catch (e) {
       throw this.mapDbError(e);
@@ -312,10 +314,29 @@ export class AuthService {
   async getProfile(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, email: true, role: true, employeeId: true, employee: { select: { fullName: true } } },
+      select: {
+        id: true, email: true, role: true, employeeId: true,
+        employee: {
+          select: {
+            fullName: true, jobTitle: true, department: true,
+            dateOfBirth: true, nationality: true,
+            personalEmail: true, workEmail: true, phone: true,
+            dateJoined: true, employmentType: true,
+            probationStatus: true, probationEndDate: true,
+            emergencyContact: { select: { name: true, relation: true, phone: true } },
+          },
+        },
+      },
     });
     if (!user) throw new UnauthorizedException("User not found");
-    return { userId: user.id, email: user.email, role: user.role, employeeId: user.employeeId, fullName: user.employee?.fullName ?? null };
+    return {
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+      employeeId: user.employeeId,
+      fullName: user.employee?.fullName ?? null,
+      employee: user.employee,
+    };
   }
 
   async updateProfile(userId: string, data: { email?: string; currentPassword?: string; newPassword?: string }) {

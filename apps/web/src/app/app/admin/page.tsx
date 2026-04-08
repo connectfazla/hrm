@@ -164,16 +164,10 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Welcome back!</h1>
-        <p className="text-muted-foreground">
-          {todayLabel()}
-          {state.status === 'authenticated' ? (
-            <>
-              {' '}
-              · <span className="text-foreground/80">{state.user.email}</span>
-            </>
-          ) : null}
-        </p>
+        <h1 className="text-2xl font-bold tracking-tight">
+          Welcome back{state.status === 'authenticated' && state.user.fullName ? `, ${state.user.fullName.split(' ')[0]}` : ''}!
+        </h1>
+        <p className="text-muted-foreground">{todayLabel()}</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

@@ -18,6 +18,7 @@ import {
   Receipt,
   Settings,
   Timer,
+  User,
   Users,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
@@ -83,6 +84,7 @@ const employeeNav: NavItem[] = [
   { href: '/app/payslips', label: 'Payslips', icon: <Receipt className="h-4 w-4" /> },
   { href: '/app/documents', label: 'Documents', icon: <FileText className="h-4 w-4" /> },
   { href: '/app/notifications', label: 'Notifications', icon: <Bell className="h-4 w-4" /> },
+  { href: '/app/profile', label: 'Profile', icon: <User className="h-4 w-4" /> },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -118,7 +120,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const isAdmin = state.user.role === 'ADMIN';
   const nav = isAdmin ? adminNav : employeeNav;
-  const initials = (state.user.email ?? 'U').slice(0, 2).toUpperCase();
+  const displayName = state.user.fullName || state.user.email || 'User';
+  const initials = state.user.fullName
+    ? state.user.fullName.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
+    : (state.user.email ?? 'U').slice(0, 2).toUpperCase();
 
   const sidebarContent = (
     <>
@@ -143,11 +148,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               collapsed && 'justify-center px-2'
             )}>
               <Avatar className="h-7 w-7">
-                <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+                <AvatarFallback className="text-xs font-semibold">{initials}</AvatarFallback>
               </Avatar>
               {!collapsed && (
                 <div className="flex-1 text-left">
-                  <div className="text-xs font-medium truncate">{state.user.email}</div>
+                  <div className="text-xs font-medium truncate">{displayName}</div>
                   <div className="text-[10px] text-muted-foreground">{isAdmin ? 'Admin' : 'Employee'}</div>
                 </div>
               )}
@@ -156,10 +161,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel className="font-normal">
               <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium">{state.user.email}</p>
-                <p className="text-xs text-muted-foreground">{isAdmin ? 'Administrator' : 'Employee'}</p>
+                <p className="text-sm font-medium">{displayName}</p>
+                <p className="text-xs text-muted-foreground">{state.user.email}</p>
               </div>
             </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => router.push('/app/profile')}>
+              <User className="mr-2 h-4 w-4" />
+              Profile
+            </DropdownMenuItem>
+            {isAdmin && (
+              <DropdownMenuItem onClick={() => router.push('/app/admin/settings')}>
+                <Settings className="mr-2 h-4 w-4" />
+                Settings
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => void logout()}>
               <LogOut className="mr-2 h-4 w-4" />
@@ -231,18 +247,29 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm" className="gap-2">
                     <Avatar className="h-6 w-6">
-                      <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
+                      <AvatarFallback className="text-[10px] font-semibold">{initials}</AvatarFallback>
                     </Avatar>
-                    <span className="text-sm">{state.user.email}</span>
+                    <span className="text-sm">{displayName}</span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
                   <DropdownMenuLabel className="font-normal">
                     <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium">{state.user.email}</p>
-                      <p className="text-xs text-muted-foreground">{isAdmin ? 'Administrator' : 'Employee'}</p>
+                      <p className="text-sm font-medium">{displayName}</p>
+                      <p className="text-xs text-muted-foreground">{state.user.email}</p>
                     </div>
                   </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => router.push('/app/profile')}>
+                    <User className="mr-2 h-4 w-4" />
+                    Profile
+                  </DropdownMenuItem>
+                  {isAdmin && (
+                    <DropdownMenuItem onClick={() => router.push('/app/admin/settings')}>
+                      <Settings className="mr-2 h-4 w-4" />
+                      Settings
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => void logout()}>
                     <LogOut className="mr-2 h-4 w-4" />

@@ -48,9 +48,10 @@ export class LeaveController {
     const validStatuses = ["PENDING", "APPROVED", "REJECTED"];
     const safeStatus = status && validStatuses.includes(status) ? status : undefined;
 
-    // Admins can filter by a specific employee via ?employeeId=…
     const filterEmployeeId =
-      role === Role.ADMIN && query.employeeId ? query.employeeId : req.user!.employeeId ?? null;
+      role === Role.ADMIN
+        ? (query.employeeId ?? null)
+        : (req.user!.employeeId ?? null);
 
     const requests = await this.leave.listRequests(role, filterEmployeeId, safeStatus as any);
     return res.json({ leaveRequests: requests });

@@ -7,6 +7,7 @@ export type SessionUser = {
   role: Role;
   employeeId?: string | null;
   email?: string;
+  fullName?: string | null;
 };
 
 export async function login(email: string, password: string) {

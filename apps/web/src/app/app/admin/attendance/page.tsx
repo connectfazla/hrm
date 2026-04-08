@@ -42,15 +42,9 @@ const MONTHS: { value: number; label: string }[] = [
 
 function formatAvgClockIn(time: string | null): string {
   if (!time) return '—';
-  const trimmed = time.trim();
-  const match = trimmed.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
-  if (!match) return trimmed;
-  let h = parseInt(match[1], 10);
-  const m = match[2];
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  h = h % 12;
-  if (h === 0) h = 12;
-  return `${h}:${m} ${ampm}`;
+  const d = new Date(time);
+  if (isNaN(d.getTime())) return time;
+  return d.toLocaleTimeString('en-AE', { hour: 'numeric', minute: '2-digit', hour12: true });
 }
 
 function daysLateBadgeClass(daysLate: number): string {

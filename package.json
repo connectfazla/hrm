@@ -1,0 +1,27 @@
+{
+  "name": "uppearance-hrms",
+  "version": "1.0.0",
+  "private": true,
+  "packageManager": "pnpm@9.15.1",
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "format": "prettier . --check",
+    "format:write": "prettier . --write",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down -v",
+    "db:migrate": "pnpm --filter @uppearance/api prisma migrate dev",
+    "db:seed": "pnpm --filter @uppearance/api prisma db seed"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "UNLICENSED",
+  "description": "Uppearance HR management system",
+  "devDependencies": {
+    "eslint": "^10.2.0",
+    "prettier": "^3.8.1",
+    "typescript": "^6.0.2"
+  }
+}

@@ -1,0 +1,23 @@
+.DS_Store
+.env
+.env.*.local
+node_modules
+.next
+dist
+build
+coverage
+.turbo
+.cache
+.pnpm-store
+
+# Logs
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Prisma
+apps/api/prisma/dev.db
+
+# Uploads (local document vault)
+storage/

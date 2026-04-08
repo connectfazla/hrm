@@ -46,11 +46,21 @@ export class DocumentsController {
 
   @UseGuards(AccessTokenGuard, RolesGuard)
   @Roles(Role.ADMIN)
+  @Get("expirations")
+  async expirations(@Req() req: RequestWithUser, @Query("withinDays") withinDaysQ?: string) {
+    const withinDays = withinDaysQ ? Number(withinDaysQ) : 90;
+    const actorUserId = req.user?.userId;
+    if (!actorUserId) return { message: "Unauthorized" };
+    return this.docs.expirationsAdmin(withinDays, actorUserId);
+  }
+
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  @Roles(Role.ADMIN)
   @Post("upload")
   @UseInterceptors(
     FileInterceptor("file", {
       storage: memoryStorage(),
-      limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+      limits: { fileSize: 10 * 1024 * 1024 },
     }),
   )
   async upload(
@@ -108,15 +118,4 @@ export class DocumentsController {
     res.setHeader("Content-Disposition", `attachment; filename="${stream.originalFileName ?? "download"}"`);
     return res.send(stream.buffer);
   }
-
-  @UseGuards(AccessTokenGuard, RolesGuard)
-  @Roles(Role.ADMIN)
-  @Get("expirations")
-  async expirations(@Req() req: RequestWithUser, @Query("withinDays") withinDaysQ?: string) {
-    const withinDays = withinDaysQ ? Number(withinDaysQ) : 90;
-    const actorUserId = req.user?.userId;
-    if (!actorUserId) return { message: "Unauthorized" };
-    return this.docs.expirationsAdmin(withinDays, actorUserId);
-  }
 }
-

@@ -12,6 +12,24 @@ type RequestWithUser = Request & { user?: { userId: string; role: Role; employee
 export class PayrollController {
   constructor(private readonly payroll: PayrollService) {}
 
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Get("runs")
+  async listRuns() {
+    return { runs: await this.payroll.listPayrollRuns() };
+  }
+
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Get("export")
+  async exportCsvTop(@Query("month") month: string, @Res() res: Response) {
+    const access = { role: Role.ADMIN, employeeId: null };
+    const { csv, filename } = await this.payroll.exportPayrollCsv(access, month);
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    return res.send(csv);
+  }
+
   @UseGuards(AccessTokenGuard)
   @Get("employee/:employeeId/payslips")
   async listPayslips(
@@ -66,18 +84,5 @@ export class PayrollController {
     return res.send(pdfBuffer);
   }
 
-  @UseGuards(AccessTokenGuard, RolesGuard)
-  @Roles(Role.ADMIN)
-  @Get("export")
-  async exportCsv(
-    @Query("month") month: string,
-    @Res() res: Response,
-  ) {
-    const access = { role: Role.ADMIN, employeeId: null };
-    const { csv, filename } = await this.payroll.exportPayrollCsv(access, month);
-    res.setHeader("Content-Type", "text/csv; charset=utf-8");
-    res.setHeader("Content-Disposition", `attachment; filename=\"${filename}\"`);
-    return res.send(csv);
-  }
 }
 

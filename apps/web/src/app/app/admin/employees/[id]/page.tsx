@@ -112,6 +112,10 @@ export default function EmployeeDetailPage() {
   const [docs, setDocs] = React.useState<DocRecord[]>([]);
   const [leaves, setLeaves] = React.useState<LeaveRecord[]>([]);
   const [attendance, setAttendance] = React.useState<AttendanceRecord[]>([]);
+  const [leaveBalance, setLeaveBalance] = React.useState<{
+    paidAccruedDays: number; paidAnnualDays: number; carryOverDays: number;
+    paidUsedDays: number; emergencyUnpaidRemainingDays: number; unpaidUsedDays: number;
+  } | null>(null);
   const [editing, setEditing] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
@@ -122,6 +126,9 @@ export default function EmployeeDetailPage() {
       .then((r) => setEmp(r.employee))
       .catch(() => toast.error('Failed to load employee'))
       .finally(() => setLoading(false));
+    apiFetch<any>(`/leave/balances/${id}`)
+      .then((r) => setLeaveBalance(r))
+      .catch(() => {});
   }, [id]);
 
   // Lazy-load tab data
@@ -159,6 +166,7 @@ export default function EmployeeDetailPage() {
       baseSalary: Number(get('baseSalary')),
       allowances: Number(get('allowances')),
       salaryChangeReason: get('salaryChangeReason') || null,
+      salaryChangeDate: get('salaryChangeDate') || null,
       bankAccount: {
         bankName: get('bankName'),
         accountHolderName: get('accountHolderName'),
@@ -239,7 +247,8 @@ export default function EmployeeDetailPage() {
             <CardContent className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2"><Label>Base Salary</Label><Input name="baseSalary" type="number" step="0.01" defaultValue={Number(emp.compensation?.baseSalary ?? 0)} /></div>
               <div className="space-y-2"><Label>Allowances</Label><Input name="allowances" type="number" step="0.01" defaultValue={Number(emp.compensation?.allowances ?? 0)} /></div>
-              <div className="space-y-2 sm:col-span-2"><Label>Salary Change Reason</Label><Input name="salaryChangeReason" placeholder="Reason for salary change (if any)" /></div>
+              <div className="space-y-2"><Label>Salary Change Reason</Label><Input name="salaryChangeReason" placeholder="Reason for salary change (if any)" /></div>
+              <div className="space-y-2"><Label>Effective Date</Label><Input name="salaryChangeDate" type="date" defaultValue={new Date().toISOString().slice(0, 10)} /></div>
             </CardContent>
           </Card>
 
@@ -453,6 +462,46 @@ export default function EmployeeDetailPage() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Leave Balance Card */}
+          {leaveBalance && (
+            <Card className="mt-4">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <CalendarDays className="h-4 w-4" /> Leave Balance
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div className="text-center p-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/20">
+                    <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                      {Math.max(0, (leaveBalance.paidAccruedDays + leaveBalance.paidAnnualDays + leaveBalance.carryOverDays) - leaveBalance.paidUsedDays)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Paid Days Left</p>
+                  </div>
+                  <div className="text-center p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20">
+                    <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{leaveBalance.paidUsedDays}</p>
+                    <p className="text-xs text-muted-foreground">Paid Days Used</p>
+                  </div>
+                  <div className="text-center p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20">
+                    <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{leaveBalance.emergencyUnpaidRemainingDays}</p>
+                    <p className="text-xs text-muted-foreground">Emergency Days Left</p>
+                  </div>
+                </div>
+                <div className="mt-3 text-xs text-muted-foreground space-y-1">
+                  {emp.probationStatus === 'ON_PROBATION' && (
+                    <p className="flex items-center gap-1">
+                      <Badge variant="warning" className="text-[10px] py-0">Probation</Badge>
+                      All leave during probation is unpaid. After 6 months: 2 emergency days/month (no carryover).
+                    </p>
+                  )}
+                  {emp.probationStatus === 'CONFIRMED' && (
+                    <p>Annual entitlement: 30 paid days per year after 1 year of service.</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {emp.notes && (
             <Card className="mt-4">

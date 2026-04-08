@@ -309,6 +309,34 @@ export class AuthService {
     }
   }
 
+  async getProfile(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true, role: true, employeeId: true, employee: { select: { fullName: true } } },
+    });
+    if (!user) throw new UnauthorizedException("User not found");
+    return { userId: user.id, email: user.email, role: user.role, employeeId: user.employeeId, fullName: user.employee?.fullName ?? null };
+  }
+
+  async updateProfile(userId: string, data: { email?: string; currentPassword?: string; newPassword?: string }) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException("User not found");
+
+    const updateData: any = {};
+    if (data.email) updateData.email = data.email;
+    if (data.newPassword) {
+      if (!data.currentPassword) throw new UnauthorizedException("Current password required");
+      const ok = await bcrypt.compare(data.currentPassword, user.passwordHash);
+      if (!ok) throw new UnauthorizedException("Current password is incorrect");
+      updateData.passwordHash = await bcrypt.hash(data.newPassword, 10);
+    }
+
+    if (Object.keys(updateData).length > 0) {
+      await this.prisma.user.update({ where: { id: userId }, data: updateData });
+    }
+    return this.getProfile(userId);
+  }
+
   private signAccessToken(user: { id: string; role: string; employeeId?: string | null }) {
     const secret = process.env.JWT_ACCESS_SECRET ?? "";
     const ttlSeconds = Number(process.env.JWT_ACCESS_TTL_SECONDS ?? 900);

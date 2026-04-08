@@ -158,6 +158,14 @@ export class PayrollService {
     });
   }
 
+  async listPayrollRuns() {
+    return this.prisma.payrollRun.findMany({
+      orderBy: { month: "desc" },
+      include: { _count: { select: { payslips: true } } },
+      take: 24,
+    });
+  }
+
   async exportPayrollCsv(access: AccessContext, monthParam: string) {
     if (access.role !== Role.ADMIN) throw new ForbiddenException("Admin only");
 
@@ -202,7 +210,7 @@ export class PayrollService {
     const chunks: Buffer[] = [];
     doc.on("data", (chunk: Buffer) => chunks.push(chunk));
 
-    doc.fontSize(16).text("Upappearance HRMS - Payslip", { align: "center" });
+    doc.fontSize(16).text("Uppearance HRMS - Payslip", { align: "center" });
     doc.moveDown();
     doc.fontSize(11).text(`Employee: ${payslip.employee.fullName}`);
     doc.text(`Month: ${payslip.month.toISOString().slice(0, 7)}`);

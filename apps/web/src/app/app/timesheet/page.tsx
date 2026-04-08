@@ -35,7 +35,8 @@ function diffHours(start: string, end: string | null) {
 export default function TimesheetPage() {
   const { state } = useAuth();
   const [sessions, setSessions] = React.useState<WorkSession[]>([]);
-  const [loading, setLoading] = React.useState(true);
+  const [loading, setLoading] = React.useState(false);
+  const [initialized, setInitialized] = React.useState(false);
   const [from, setFrom] = React.useState('');
   const [to, setTo] = React.useState('');
 
@@ -45,25 +46,22 @@ export default function TimesheetPage() {
     past.setDate(past.getDate() - 30);
     setFrom(past.toISOString().slice(0, 10));
     setTo(now.toISOString().slice(0, 10));
+    setInitialized(true);
   }, []);
 
   const employeeId = state.status === 'authenticated' ? state.user.employeeId : null;
 
-  const fetchData = React.useCallback(async () => {
-    if (!employeeId || !from || !to) return;
+  React.useEffect(() => {
+    if (!initialized || !employeeId || !from || !to) return;
+    let cancelled = false;
     setLoading(true);
-    try {
-      const params = new URLSearchParams({ from, to, limit: '200' });
-      const res = await apiFetch<{ sessions: WorkSession[] }>(`/attendance/${employeeId}/sessions?${params}`);
-      setSessions(res.sessions ?? []);
-    } catch {
-      toast.error('Failed to load timesheet');
-    } finally {
-      setLoading(false);
-    }
-  }, [employeeId, from, to]);
-
-  React.useEffect(() => { fetchData(); }, [fetchData]);
+    const params = new URLSearchParams({ from, to, limit: '200' });
+    apiFetch<{ sessions: WorkSession[] }>(`/attendance/${employeeId}/sessions?${params}`)
+      .then((res) => { if (!cancelled) setSessions(res.sessions ?? []); })
+      .catch(() => { if (!cancelled) toast.error('Failed to load timesheet'); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [initialized, employeeId, from, to]);
 
   const exportSheet = async (format: 'csv' | 'pdf') => {
     if (!employeeId) return;
@@ -84,6 +82,24 @@ export default function TimesheetPage() {
   };
 
   if (state.status !== 'authenticated') return null;
+
+  if (!employeeId) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Timesheet</h1>
+          <p className="text-muted-foreground">Review your attendance records.</p>
+        </div>
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+            <FileSpreadsheet className="mb-3 h-10 w-10 opacity-30" />
+            <p className="text-sm font-medium">No employee profile linked</p>
+            <p className="text-xs mt-1">Please log out and log back in to refresh your session.</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const totalHours = sessions.reduce((sum, s) => {
     if (!s.clockOutAt) return sum;

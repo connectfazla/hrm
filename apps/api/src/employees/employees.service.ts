@@ -43,6 +43,7 @@ type CreateEmployeePayload = {
 
 type UpdateEmployeePayload = Partial<Omit<CreateEmployeePayload, "initialPassword">> & {
   salaryChangeReason?: string | null;
+  salaryChangeDate?: string | null;
 };
 
 function addMonths(date: Date, months: number) {
@@ -306,11 +307,11 @@ export class EmployeesService {
       const salaryChanged = payload.baseSalary != null || payload.allowances != null;
 
       if (salaryChanged && (salaryBaseNew !== salaryBaseOld || salaryAllowNew !== salaryAllowOld)) {
-        // Salary history only if any component changed.
+        const effectiveDate = payload.salaryChangeDate ? new Date(payload.salaryChangeDate) : now;
         await tx.salaryHistory.create({
           data: {
             employeeId: id,
-            effectiveDate: now,
+            effectiveDate,
             oldBaseSalary: salaryBaseOld,
             newBaseSalary: salaryBaseNew,
             oldAllowances: salaryAllowOld,

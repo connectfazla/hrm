@@ -1,7 +1,9 @@
-import { Body, Controller, Post, Res } from "@nestjs/common";
+import { Body, Controller, Get, Post, Put, Req, Res, UseGuards } from "@nestjs/common";
 import { z } from "zod";
 import type { Response, Request } from "express";
 import { AuthService } from "./auth.service";
+import { AccessTokenGuard } from "./guards/access-token.guard";
+import { Role } from "@prisma/client";
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -29,6 +31,13 @@ const resetPasswordSchema = z.object({
 });
 
 type CookiesRequest = Request & { cookies?: Record<string, string> };
+type RequestWithUser = Request & { user?: { userId: string; role: Role; employeeId?: string | null } };
+
+const updateProfileSchema = z.object({
+  email: z.string().email().optional(),
+  currentPassword: z.string().optional(),
+  newPassword: z.string().min(8).optional(),
+});
 
 @Controller("auth")
 export class AuthController {
@@ -123,6 +132,32 @@ export class AuthController {
 
     await this.auth.resetPassword(parsed.data.token, parsed.data.newPassword);
     return { ok: true };
+  }
+
+  @UseGuards(AccessTokenGuard)
+  @Get("me")
+  async me(@Req() req: RequestWithUser, @Res({ passthrough: true }) res: Response) {
+    const userId = req.user?.userId;
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+    const profile = await this.auth.getProfile(userId);
+    return res.json({ profile });
+  }
+
+  @UseGuards(AccessTokenGuard)
+  @Put("profile")
+  async updateProfile(
+    @Req() req: RequestWithUser,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const userId = req.user?.userId;
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+    const parsed = updateProfileSchema.safeParse(body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid request" });
+
+    const updated = await this.auth.updateProfile(userId, parsed.data);
+    return res.json({ profile: updated });
   }
 
   private setCookies(res: Response, accessToken: string, refreshToken: string) {

@@ -21,7 +21,7 @@ export class AttendanceController {
   @Post("attendance/clock-in")
   async clockIn(@Req() req: RequestWithUser, @Res({ passthrough: true }) res: Response) {
     const employeeId = req.user?.employeeId;
-    if (!employeeId) return res.status(401).json({ message: "Unauthorized" });
+    if (!employeeId) return res.status(403).json({ message: "No employee profile linked to your account. Please log out and log back in." });
     const session = await this.attendance.clockIn(employeeId, new Date());
     return res.json({ session });
   }
@@ -34,7 +34,7 @@ export class AttendanceController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const employeeId = req.user?.employeeId;
-    if (!employeeId) return res.status(401).json({ message: "Unauthorized" });
+    if (!employeeId) return res.status(403).json({ message: "No employee profile linked to your account. Please log out and log back in." });
 
     const parsed = clockOutSchema.safeParse(body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid request" });
@@ -47,7 +47,7 @@ export class AttendanceController {
   @Post("attendance/lunch-start")
   async lunchStart(@Req() req: RequestWithUser, @Res({ passthrough: true }) res: Response) {
     const employeeId = req.user?.employeeId;
-    if (!employeeId) return res.status(401).json({ message: "Unauthorized" });
+    if (!employeeId) return res.status(403).json({ message: "No employee profile linked to your account. Please log out and log back in." });
     const lunch = await this.attendance.lunchStart(employeeId, new Date());
     return res.json({ lunch });
   }
@@ -56,7 +56,7 @@ export class AttendanceController {
   @Post("attendance/lunch-end")
   async lunchEnd(@Req() req: RequestWithUser, @Res({ passthrough: true }) res: Response) {
     const employeeId = req.user?.employeeId;
-    if (!employeeId) return res.status(401).json({ message: "Unauthorized" });
+    if (!employeeId) return res.status(403).json({ message: "No employee profile linked to your account. Please log out and log back in." });
     const lunch = await this.attendance.lunchEnd(employeeId, new Date());
     return res.json({ lunch });
   }
@@ -142,16 +142,5 @@ export class AttendanceController {
     return res.send(csv);
   }
 
-  @UseGuards(AccessTokenGuard, RolesGuard)
-  @Roles(Role.ADMIN)
-  @Get("reports/attendance")
-  async attendanceReport(
-    @Query("year") yearQ?: string,
-    @Query("month") monthQ?: string,
-  ) {
-    const year = yearQ ? Number(yearQ) : new Date().getUTCFullYear();
-    const month = monthQ ? Number(monthQ) : null;
-    return this.attendance.adminLateReport(year, month);
-  }
 }
 

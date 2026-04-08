@@ -46,8 +46,8 @@ const createEmployeeSchema = z.object({
 const updateEmployeeSchema = createEmployeeSchema
   .partial()
   .extend({
-    // For salary updates specifically.
     salaryChangeReason: z.string().optional().nullable(),
+    salaryChangeDate: z.string().optional().nullable(),
   })
   .omit({ initialPassword: true });
 

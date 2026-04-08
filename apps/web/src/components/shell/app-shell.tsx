@@ -6,6 +6,8 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   Banknote,
   Bell,
+  BarChart3,
+  BookOpen,
   CalendarDays,
   ChevronLeft,
   Clock3,
@@ -68,6 +70,9 @@ const adminNav: NavItem[] = [
   { href: '/app/admin/leave', label: 'Leave', icon: <CalendarDays className="h-4 w-4" /> },
   { href: '/app/admin/payroll', label: 'Payroll', icon: <Banknote className="h-4 w-4" /> },
   { href: '/app/admin/documents', label: 'Documents', icon: <FileText className="h-4 w-4" /> },
+  { href: '/app/admin/reports', label: 'Reports', icon: <BarChart3 className="h-4 w-4" /> },
+  { href: '/app/admin/api-docs', label: 'API Docs', icon: <BookOpen className="h-4 w-4" /> },
+  { href: '/app/admin/settings', label: 'Settings', icon: <Settings className="h-4 w-4" /> },
   { href: '/app/admin/notifications', label: 'Notifications', icon: <Bell className="h-4 w-4" /> },
 ];
 

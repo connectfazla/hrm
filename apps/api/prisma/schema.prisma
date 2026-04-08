@@ -477,6 +477,13 @@ model Notification {
   createdAt DateTime @default(now())
 }
 
+model SiteSettings {
+  id        String   @id @default(uuid()) @db.Uuid
+  key       String   @unique
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
 model AuditLog {
   id String @id @default(uuid()) @db.Uuid
 

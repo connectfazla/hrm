@@ -1,52 +1,174 @@
-# Upappearance HRMS
+# Uppearance HRMS
 
-Full-stack HR management system for a small team (UAE/Dubai).
+Full-stack HR management system built for small teams in the UAE (Dubai). Clean, modern SaaS-style UI with UAE Labour Law compliance.
 
-## Stack
-- Web: Next.js (`apps/web`)
-- API: NestJS (`apps/api`)
-- DB: PostgreSQL (Prisma schema/migrations)
-- Email: SMTP (Mailhog recommended for local)
-- Docs: local encrypted storage (`storage/`)
+## Features
+
+- **Authentication & Roles** — JWT-based login, Admin/Employee roles, password reset via email, session management
+- **Employee Management** — Full CRUD with personal info, ID documents, employment details, compensation, bank account, emergency contacts, notes
+- **Time Tracking** — Clock in/out, lunch breaks, late detection, world clocks (Dubai, Dhaka, Cairo), session tracking
+- **Timesheet** — Daily session view with summary cards, date range filters, CSV/PDF export
+- **Leave Management** — UAE Labour Law compliance (probation rules, annual/emergency/sick/maternity/study/Hajj leave), request workflow, balance dashboard
+- **Payroll** — Monthly payroll runs, payslip generation, employee preview, CSV export, past run history
+- **Document Vault** — Encrypted file storage (AES-256-GCM), category management, expiry tracking with alerts
+- **Salary Journey** — Full salary change history with raise dates and percentage tracking
+- **Admin Dashboard** — KPIs, attendance overview, pending requests, quick actions, probation alerts
+- **Reports & Analytics** — Headcount, attendance, leave, payroll, and probation metrics
+- **Attendance Reports** — Filterable by year, month, department; per-employee stats
+- **Admin Settings** — Profile management, company settings, SMTP configuration, email templates with variable placeholders
+- **API Documentation** — In-app endpoint reference with cURL examples, link to Swagger/OpenAPI
+- **Notifications** — In-app alerts for leave decisions, document expiry, salary changes
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Frontend | Next.js 15 (App Router), React, Tailwind CSS, shadcn/ui |
+| Backend | NestJS, Prisma ORM |
+| Database | PostgreSQL |
+| Auth | JWT (access + refresh tokens), HttpOnly cookies, bcrypt |
+| Email | Nodemailer (Mailhog for dev) |
+| File Storage | Local encrypted (AES-256-GCM) |
+
+## Project Structure
+
+```
+├── apps/
+│   ├── api/          # NestJS backend
+│   │   ├── prisma/   # Schema, migrations, seed
+│   │   └── src/      # Modules: auth, employees, attendance, leave, payroll, documents, settings, reports, notifications
+│   └── web/          # Next.js frontend
+│       └── src/
+│           ├── app/           # Pages (app router)
+│           ├── components/    # Shared UI components
+│           └── lib/           # Utilities (api, auth, cn)
+├── packages/
+│   └── shared/       # Shared types and schemas
+├── docker-compose.yml
+├── docker-compose.prod.yml
+└── .env.example
+```
 
 ## Prerequisites
-- Node `20.x` (see `.nvmrc`)
+
+- Node.js `20.x` (see `.nvmrc`)
 - pnpm
-- Postgres running locally (or via Docker, if available on your machine)
+- PostgreSQL (local or Docker)
 
-## Environment variables
-- Copy `.env.example` to `.env` and adjust as needed.
+## Quick Start
 
-## Run locally
+### 1. Install dependencies
 
-### 1) Install
 ```bash
 pnpm install
 ```
 
-### 2) Start database
-If you have Docker:
+### 2. Set up environment
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` with your database credentials and JWT secrets.
+
+### 3. Start database
+
+**With Docker:**
 ```bash
 docker compose up -d
 ```
 
-If you don't have Docker, run Postgres locally and ensure `DATABASE_URL` is reachable.
-
-### 3) Migrate + seed
+**Without Docker (macOS):**
 ```bash
-cd apps/api
-pnpm db:migrate
-pnpm db:seed
+brew install postgresql@16
+brew services start postgresql@16
+psql -d postgres -c "CREATE USER uppearance WITH PASSWORD 'uppearance' CREATEDB;"
+psql -d postgres -c "CREATE DATABASE uppearance_hrms OWNER uppearance;"
 ```
 
-Seeded credentials (local only):
-- Admin: `admin@uppearance.com` / `Admin123!`
-- Employees: `<workEmail>` / `Employee123!`
+### 4. Run migrations and seed
 
-### 4) Start API
+```bash
+cd apps/api
+npx prisma migrate dev
+npx prisma db seed
+```
+
+### 5. Start the API
+
 ```bash
 cd apps/api
 pnpm start:dev
 ```
 
-API base: `http://localhost:4000/api/v1`\nSwagger: `http://localhost:4000/api/docs`\n\n### 5) Start web\n```bash\ncd apps/web\npnpm dev\n```\nWeb: `http://localhost:3000`\n+
+API: `http://localhost:4000/api/v1`
+Swagger: `http://localhost:4000/api/docs`
+
+### 6. Start the web app
+
+```bash
+cd apps/web
+pnpm dev
+```
+
+Web: `http://localhost:3000`
+
+## Default Credentials
+
+| Role | Email | Password |
+|------|-------|----------|
+| Admin | `admin@uppearance.com` | `Admin123!` |
+| Employee | `aisha@uppearance.com` | `Employee123!` |
+| Employee | `khalid@uppearance.com` | `Employee123!` |
+| Employee | `lina@uppearance.com` | `Employee123!` |
+| Employee | `noor@uppearance.com` | `Employee123!` |
+| Employee | `samir@uppearance.com` | `Employee123!` |
+
+## Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DATABASE_URL` | PostgreSQL connection string | — |
+| `JWT_ACCESS_SECRET` | Secret for access tokens | — |
+| `JWT_REFRESH_SECRET` | Secret for refresh tokens | — |
+| `JWT_ACCESS_TTL_SECONDS` | Access token TTL | `900` |
+| `JWT_REFRESH_TTL_SECONDS` | Refresh token TTL | `1209600` |
+| `SESSION_IDLE_TTL_SECONDS` | Idle session timeout | `1800` |
+| `SMTP_HOST` | SMTP server host | `localhost` |
+| `SMTP_PORT` | SMTP server port | `1025` |
+| `SMTP_USER` | SMTP username | — |
+| `SMTP_PASS` | SMTP password | — |
+| `SMTP_FROM` | From email address | `hrms@uppearance.local` |
+| `FILE_ENCRYPTION_KEY` | 32-byte hex key for document encryption | — |
+| `WEB_BASE_URL` | Frontend URL | `http://localhost:3000` |
+| `CORS_ORIGIN` | Allowed CORS origins (comma-separated) | `http://localhost:3000` |
+
+## API Overview
+
+All endpoints are prefixed with `/api/v1`. Authentication uses HttpOnly cookies.
+
+| Category | Key Endpoints |
+|----------|--------------|
+| Auth | `POST /auth/login`, `POST /auth/register`, `GET /auth/me`, `PUT /auth/profile` |
+| Employees | `GET /employees`, `POST /employees`, `PUT /employees/:id` |
+| Attendance | `POST /attendance/clock-in`, `POST /attendance/clock-out`, `GET /attendance/:id/sessions` |
+| Leave | `POST /leave/request`, `GET /leave/requests`, `PUT /leave/request/:id/approve` |
+| Payroll | `GET /payroll/runs`, `POST /payroll/:month/run`, `GET /payroll/export` |
+| Documents | `POST /documents/upload`, `GET /documents/:employeeId`, `GET /documents/expirations` |
+| Settings | `GET /settings`, `PUT /settings/:key`, `POST /settings/smtp/test` |
+| Reports | `GET /reports/summary`, `GET /reports/attendance` |
+
+Full API documentation is available in-app at **Admin > API Docs** or via Swagger at `/api/docs`.
+
+## Production Deployment
+
+```bash
+cp .env.production.example .env.production
+# Edit .env.production with production values
+
+docker compose -f docker-compose.prod.yml up -d
+```
+
+## Currency
+
+All monetary values are in **AED** (UAE Dirham).

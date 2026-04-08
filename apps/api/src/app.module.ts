@@ -11,12 +11,13 @@ import { LeaveModule } from "./leave/leave.module";
 import { PayrollModule } from "./payroll/payroll.module";
 import { DocumentsModule } from "./documents/documents.module";
 import { NotificationsModule } from "./notifications/notifications.module";
+import { SettingsModule } from "./settings/settings.module";
+import { ReportsModule } from "./reports/reports.module";
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      // Support running from apps/api while keeping a repo-root .env
       envFilePath: ["../../.env", ".env"],
     }),
     ThrottlerModule.forRoot(),
@@ -28,6 +29,8 @@ import { NotificationsModule } from "./notifications/notifications.module";
     PayrollModule,
     NotificationsModule,
     DocumentsModule,
+    SettingsModule,
+    ReportsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

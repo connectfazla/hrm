@@ -43,7 +43,6 @@ function useWorldClocks() {
           timeZone: c.tz,
           hour: '2-digit',
           minute: '2-digit',
-          second: '2-digit',
           hour12: true,
         });
       }
@@ -86,7 +85,7 @@ function useDate() {
 }
 
 export default function ClockPage() {
-  const { state } = useAuth();
+  const { state, logout } = useAuth();
   const worldTimes = useWorldClocks();
   const todayDate = useDate();
   const [clockOutOpen, setClockOutOpen] = React.useState(false);
@@ -151,6 +150,25 @@ export default function ClockPage() {
   };
 
   if (state.status !== 'authenticated') return null;
+
+  if (!employeeId) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Clock</h1>
+          <p className="text-muted-foreground">Track your work hours, take lunch, and end your day.</p>
+        </div>
+        <Card className="border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20">
+          <CardContent className="flex flex-col items-center gap-3 py-10">
+            <Clock className="h-10 w-10 text-amber-500 opacity-60" />
+            <p className="text-sm font-medium text-amber-700 dark:text-amber-300">Your account is not linked to an employee profile.</p>
+            <p className="text-xs text-amber-600 dark:text-amber-400">Please log out and log back in to refresh your session.</p>
+            <Button variant="outline" size="sm" className="mt-2" onClick={() => void logout()}>Sign out &amp; retry</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (checkingSession) {
     return (

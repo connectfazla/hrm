@@ -343,7 +343,42 @@ async function seed() {
     }
   }
 
-  // ─── Attendance / Work Sessions ──────────────────────────
+  // ─── Admin Work Sessions ─────────────────────────────────
+  for (let dayOffset = 14; dayOffset >= 1; dayOffset--) {
+    const day = addDays(now, -dayOffset);
+    const dow = day.getUTCDay();
+    if (dow === 5 || dow === 6) continue;
+
+    const existing = await prisma.workSession.findFirst({
+      where: { employeeId: adminEmployee.id, clockInAt: { gte: setTime(day, 0, 0), lt: setTime(day, 23, 59) } },
+    });
+    if (existing) continue;
+
+    const clockIn = setTime(day, 8, 30 + (dayOffset % 10));
+    const clockOut = setTime(day, 17, 30 + (dayOffset % 15));
+
+    const ws = await prisma.workSession.create({
+      data: {
+        employeeId: adminEmployee.id,
+        clockInAt: clockIn,
+        clockOutAt: clockOut,
+        late: false,
+        lateByMinutes: 0,
+        workComment: "Administrative duties and team management",
+      },
+    });
+
+    await prisma.lunchBreak.create({
+      data: {
+        workSessionId: ws.id,
+        startAt: setTime(day, 12, 30),
+        endAt: setTime(day, 13, 0),
+        durationMinutes: 30,
+      },
+    });
+  }
+
+  // ─── Employee Work Sessions ─────────────────────────────
   const clockInVariations = [
     { h: 8, m: 55, late: false, lateBy: 0 },
     { h: 9, m: 2, late: false, lateBy: 0 },
@@ -590,6 +625,46 @@ async function seed() {
     if (existing) continue;
 
     await prisma.notification.create({ data: n });
+  }
+
+  // ─── Site Settings ───────────────────────────────────────
+  const defaultSettings: Record<string, any> = {
+    company_name: "Uppearance",
+    timezone: "Asia/Dubai",
+    currency: "AED",
+    workday_start: "09:00",
+    late_grace_minutes: 5,
+    smtp: { host: "localhost", port: 1025, username: "", password: "", tls: false },
+    email_templates: {
+      leave_approved: {
+        subject: "Leave Approved - {{leave_type}}",
+        body: "Dear {{employee_name}},\n\nYour {{leave_type}} leave from {{start_date}} to {{end_date}} has been approved.\n\nRegards,\nHR Team",
+      },
+      leave_rejected: {
+        subject: "Leave Rejected - {{leave_type}}",
+        body: "Dear {{employee_name}},\n\nYour {{leave_type}} leave from {{start_date}} to {{end_date}} has been rejected.\n\nPlease contact HR for details.\n\nRegards,\nHR Team",
+      },
+      salary_changed: {
+        subject: "Salary Update",
+        body: "Dear {{employee_name}},\n\nYour salary has been updated to {{salary_amount}} effective immediately.\n\nRegards,\nHR Team",
+      },
+      document_expiry: {
+        subject: "Document Expiring - {{document_name}}",
+        body: "Dear {{employee_name}},\n\nYour document '{{document_name}}' will expire on {{expiry_date}}. Please submit an updated copy.\n\nRegards,\nHR Team",
+      },
+      welcome_employee: {
+        subject: "Welcome to Uppearance!",
+        body: "Dear {{employee_name}},\n\nWelcome to the team! Your account has been set up. Please log in at the HR portal to review your details.\n\nRegards,\nHR Team",
+      },
+    },
+  };
+
+  for (const [key, value] of Object.entries(defaultSettings)) {
+    await prisma.siteSettings.upsert({
+      where: { key },
+      update: { value },
+      create: { key, value },
+    });
   }
 
   console.log("Seed complete.");

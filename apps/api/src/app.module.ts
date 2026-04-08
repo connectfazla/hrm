@@ -10,6 +10,7 @@ import { AttendanceModule } from "./attendance/attendance.module";
 import { LeaveModule } from "./leave/leave.module";
 import { PayrollModule } from "./payroll/payroll.module";
 import { DocumentsModule } from "./documents/documents.module";
+import { NotificationsModule } from "./notifications/notifications.module";
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { DocumentsModule } from "./documents/documents.module";
     AttendanceModule,
     LeaveModule,
     PayrollModule,
+    NotificationsModule,
     DocumentsModule,
   ],
   controllers: [AppController],

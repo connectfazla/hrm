@@ -14,7 +14,11 @@ import { NotificationsModule } from "./notifications/notifications.module";
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      // Support running from apps/api while keeping a repo-root .env
+      envFilePath: ["../../.env", ".env"],
+    }),
     ThrottlerModule.forRoot(),
     PrismaModule,
     AuthModule,

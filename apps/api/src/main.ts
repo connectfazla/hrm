@@ -8,6 +8,11 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.setGlobalPrefix("api/v1");
 
+  app.enableCors({
+    origin: process.env.WEB_BASE_URL ?? "http://localhost:3000",
+    credentials: true,
+  });
+
   app.use(cookieParser());
 
   // Basic validation pipe for controllers that use DTO-like patterns.

@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from "@nestjs/common";
+import { Injectable, ServiceUnavailableException, UnauthorizedException } from "@nestjs/common";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
@@ -31,10 +31,15 @@ export class AuthService {
   });
 
   async login(email: string, password: string): Promise<LoginResult> {
-    const user = await this.prisma.user.findUnique({
-      where: { email },
-      include: { employee: true },
-    });
+    let user: any;
+    try {
+      user = await this.prisma.user.findUnique({
+        where: { email },
+        include: { employee: true },
+      });
+    } catch (e) {
+      throw this.mapDbError(e);
+    }
 
     if (!user) throw new UnauthorizedException("Invalid email or password");
 
@@ -49,19 +54,23 @@ export class AuthService {
     const refreshTokenHash = sha256Hex(refreshToken);
     const now = new Date();
 
-    await this.prisma.refreshToken.updateMany({
-      where: { userId: user.id, revokedAt: null },
-      data: { revokedAt: now },
-    });
+    try {
+      await this.prisma.refreshToken.updateMany({
+        where: { userId: user.id, revokedAt: null },
+        data: { revokedAt: now },
+      });
 
-    await this.prisma.refreshToken.create({
-      data: {
-        userId: user.id,
-        tokenHash: refreshTokenHash,
-        expiresAt: new Date(now.getTime() + this.refreshTtlMs),
-        lastActivityAt: now,
-      },
-    });
+      await this.prisma.refreshToken.create({
+        data: {
+          userId: user.id,
+          tokenHash: refreshTokenHash,
+          expiresAt: new Date(now.getTime() + this.refreshTtlMs),
+          lastActivityAt: now,
+        },
+      });
+    } catch (e) {
+      throw this.mapDbError(e);
+    }
 
     return {
       accessToken,
@@ -78,68 +87,94 @@ export class AuthService {
     const refreshTokenHash = sha256Hex(refreshToken);
     const now = new Date();
 
-    const stored = await this.prisma.refreshToken.findFirst({
-      where: { tokenHash: refreshTokenHash, revokedAt: null },
-      include: { user: { include: { employee: true } } },
-    });
+    let stored: any;
+    try {
+      stored = await this.prisma.refreshToken.findFirst({
+        where: { tokenHash: refreshTokenHash, revokedAt: null },
+        include: { user: { include: { employee: true } } },
+      });
+    } catch (e) {
+      throw this.mapDbError(e);
+    }
 
     if (!stored) throw new UnauthorizedException("Invalid refresh token");
     if (stored.expiresAt < now) {
-      await this.prisma.refreshToken.update({
-        where: { id: stored.id },
-        data: { revokedAt: now },
-      });
+      try {
+        await this.prisma.refreshToken.update({
+          where: { id: stored.id },
+          data: { revokedAt: now },
+        });
+      } catch (e) {
+        throw this.mapDbError(e);
+      }
       throw new UnauthorizedException("Refresh token expired");
     }
 
     const idleMs = now.getTime() - stored.lastActivityAt.getTime();
     if (idleMs > this.refreshIdleTtlMs) {
       // Inactivity -> revoke.
-      await this.prisma.refreshToken.update({
-        where: { id: stored.id },
-        data: { revokedAt: now },
-      });
+      try {
+        await this.prisma.refreshToken.update({
+          where: { id: stored.id },
+          data: { revokedAt: now },
+        });
+      } catch (e) {
+        throw this.mapDbError(e);
+      }
       throw new UnauthorizedException("Session expired due to inactivity");
     }
 
     // Rotate refresh token.
     const user = stored.user;
-    await this.prisma.refreshToken.update({
-      where: { id: stored.id },
-      data: { revokedAt: now },
-    });
+    try {
+      await this.prisma.refreshToken.update({
+        where: { id: stored.id },
+        data: { revokedAt: now },
+      });
 
-    const newRefreshToken = randomToken(48);
-    const newRefreshTokenHash = sha256Hex(newRefreshToken);
+      const newRefreshToken = randomToken(48);
+      const newRefreshTokenHash = sha256Hex(newRefreshToken);
 
-    await this.prisma.refreshToken.create({
-      data: {
-        userId: user.id,
-        tokenHash: newRefreshTokenHash,
-        expiresAt: new Date(now.getTime() + this.refreshTtlMs),
-        lastActivityAt: now,
-      },
-    });
+      await this.prisma.refreshToken.create({
+        data: {
+          userId: user.id,
+          tokenHash: newRefreshTokenHash,
+          expiresAt: new Date(now.getTime() + this.refreshTtlMs),
+          lastActivityAt: now,
+        },
+      });
 
-    return {
-      accessToken: this.signAccessToken(user),
-      refreshToken: newRefreshToken,
-      user: { userId: user.id, role: user.role, employeeId: user.employeeId },
-    };
+      return {
+        accessToken: this.signAccessToken(user),
+        refreshToken: newRefreshToken,
+        user: { userId: user.id, role: user.role, employeeId: user.employeeId },
+      };
+    } catch (e) {
+      throw this.mapDbError(e);
+    }
   }
 
   async logout(refreshToken?: string | null): Promise<void> {
     if (!refreshToken) return;
     const refreshTokenHash = sha256Hex(refreshToken);
     const now = new Date();
-    await this.prisma.refreshToken.updateMany({
-      where: { tokenHash: refreshTokenHash, revokedAt: null },
-      data: { revokedAt: now },
-    });
+    try {
+      await this.prisma.refreshToken.updateMany({
+        where: { tokenHash: refreshTokenHash, revokedAt: null },
+        data: { revokedAt: now },
+      });
+    } catch (e) {
+      throw this.mapDbError(e);
+    }
   }
 
   async forgotPassword(email: string): Promise<void> {
-    const user = await this.prisma.user.findUnique({ where: { email } });
+    let user: any;
+    try {
+      user = await this.prisma.user.findUnique({ where: { email } });
+    } catch (e) {
+      throw this.mapDbError(e);
+    }
 
     // Don't leak whether user exists.
     if (!user) return;
@@ -150,13 +185,17 @@ export class AuthService {
     const now = new Date();
     const expiresAt = new Date(now.getTime() + 15 * 60 * 1000);
 
-    await this.prisma.passwordResetToken.create({
-      data: {
-        userId: user.id,
-        tokenHash: resetTokenHash,
-        expiresAt,
-      },
-    });
+    try {
+      await this.prisma.passwordResetToken.create({
+        data: {
+          userId: user.id,
+          tokenHash: resetTokenHash,
+          expiresAt,
+        },
+      });
+    } catch (e) {
+      throw this.mapDbError(e);
+    }
 
     const resetUrl = `${process.env.APP_BASE_URL ?? "http://localhost:4000"}/reset-password?token=${encodeURIComponent(
       resetToken,
@@ -178,29 +217,38 @@ export class AuthService {
     const tokenHash = sha256Hex(token);
     const now = new Date();
 
-    const reset = await this.prisma.passwordResetToken.findFirst({
-      where: { tokenHash, usedAt: null, expiresAt: { gt: now } },
-      include: { user: true },
-    });
+    let reset: any;
+    try {
+      reset = await this.prisma.passwordResetToken.findFirst({
+        where: { tokenHash, usedAt: null, expiresAt: { gt: now } },
+        include: { user: true },
+      });
+    } catch (e) {
+      throw this.mapDbError(e);
+    }
 
     if (!reset) throw new UnauthorizedException("Invalid or expired reset token");
 
     const passwordHash = await bcrypt.hash(newPassword, 10);
 
-    await this.prisma.$transaction([
-      this.prisma.user.update({
-        where: { id: reset.userId },
-        data: { passwordHash },
-      }),
-      this.prisma.passwordResetToken.update({
-        where: { id: reset.id },
-        data: { usedAt: now },
-      }),
-      this.prisma.refreshToken.updateMany({
-        where: { userId: reset.userId, revokedAt: null },
-        data: { revokedAt: now },
-      }),
-    ]);
+    try {
+      await this.prisma.$transaction([
+        this.prisma.user.update({
+          where: { id: reset.userId },
+          data: { passwordHash },
+        }),
+        this.prisma.passwordResetToken.update({
+          where: { id: reset.id },
+          data: { usedAt: now },
+        }),
+        this.prisma.refreshToken.updateMany({
+          where: { userId: reset.userId, revokedAt: null },
+          data: { revokedAt: now },
+        }),
+      ]);
+    } catch (e) {
+      throw this.mapDbError(e);
+    }
   }
 
   private signAccessToken(user: { id: string; role: string; employeeId?: string | null }) {
@@ -217,6 +265,17 @@ export class AuthService {
         expiresIn: ttlSeconds,
       },
     );
+  }
+
+  private mapDbError(err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (
+      msg.includes("Can't reach database server") ||
+      msg.includes("Environment variable not found: DATABASE_URL")
+    ) {
+      return new ServiceUnavailableException("Database is not available. Start Postgres and run migrations/seed.");
+    }
+    return err instanceof Error ? err : new Error(msg);
   }
 
   private get prisma() {

@@ -1,4 +1,5 @@
 FROM node:20-alpine AS base
+RUN apk add --no-cache openssl
 
 # ── Build (pnpm needed for monorepo workspace resolution) ──
 FROM base AS build

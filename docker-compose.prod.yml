@@ -8,8 +8,6 @@ services:
       POSTGRES_DB: ${DB_NAME:-uppearance_hrms}
     volumes:
       - pg_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-uppearance}"]
       interval: 5s
@@ -67,7 +65,7 @@ services:
     environment:
       DATABASE_URL: postgresql://${DB_USER:-uppearance}:${DB_PASSWORD:-uppearance}@postgres:5432/${DB_NAME:-uppearance_hrms}
     command: >
-      sh -c "npx prisma migrate deploy && npx prisma db seed"
+      sh -c "cd /app && npx prisma migrate deploy --schema=prisma/schema.prisma && npx prisma db seed"
     profiles:
       - setup
 

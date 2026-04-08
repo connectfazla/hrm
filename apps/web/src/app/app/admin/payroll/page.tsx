@@ -9,7 +9,9 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
-import { Banknote, Download, Play, Clock, FileText, Users } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Banknote, Download, Play, Clock, FileText, Users, PlusCircle, MinusCircle, Trash2 } from 'lucide-react';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000/api/v1';
 
@@ -232,6 +234,36 @@ export default function AdminPayrollPage() {
       }
     } catch (err) {
       toast.error((err as Error).message ?? 'PDF export failed');
+    }
+  };
+
+  const [adjustTarget, setAdjustTarget] = React.useState<PreviewRow | null>(null);
+  const [adjDesc, setAdjDesc] = React.useState('');
+  const [adjAmount, setAdjAmount] = React.useState('');
+  const [adjIsAddition, setAdjIsAddition] = React.useState(false);
+  const [adjSubmitting, setAdjSubmitting] = React.useState(false);
+
+  const handleAddAdjustment = async () => {
+    if (!adjustTarget || !adjDesc || !adjAmount) {
+      toast.error('Fill in all fields');
+      return;
+    }
+    setAdjSubmitting(true);
+    try {
+      const { payslip } = await apiFetch<{ payslip: { id: string } }>(`/payroll/${adjustTarget.employeeId}/${month}`);
+      await apiFetch(`/payroll/${payslip.id}/adjustment`, {
+        method: 'POST',
+        json: { description: adjDesc, amount: Number(adjAmount), isAddition: adjIsAddition },
+      });
+      toast.success(`Adjustment added for ${adjustTarget.fullName}`);
+      setAdjustTarget(null);
+      setAdjDesc('');
+      setAdjAmount('');
+      setPreviewRefreshKey((k) => k + 1);
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setAdjSubmitting(false);
     }
   };
 
@@ -465,6 +497,7 @@ export default function AdminPayrollPage() {
                   <TableHead className="text-right">Allowances</TableHead>
                   <TableHead className="text-right">Deductions</TableHead>
                   <TableHead className="text-right">Net pay</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -476,6 +509,11 @@ export default function AdminPayrollPage() {
                     <TableCell className="text-right tabular-nums">{formatAed(row.allowances)}</TableCell>
                     <TableCell className="text-right tabular-nums">{formatAed(row.deductions)}</TableCell>
                     <TableCell className="text-right tabular-nums font-medium">{formatAed(row.netPay)}</TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="sm" onClick={() => { setAdjustTarget(row); setAdjIsAddition(false); setAdjDesc(''); setAdjAmount(''); }}>
+                        <PlusCircle className="mr-1 h-3 w-3" /> Adjust
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -483,6 +521,59 @@ export default function AdminPayrollPage() {
           )}
         </CardContent>
       </Card>
+      <Dialog open={!!adjustTarget} onOpenChange={(open) => { if (!open) setAdjustTarget(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Payroll Adjustment</DialogTitle>
+            <DialogDescription>
+              {adjustTarget ? `Adjust payslip for ${adjustTarget.fullName} (${month})` : ''}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant={!adjIsAddition ? 'default' : 'outline'}
+                onClick={() => setAdjIsAddition(false)}
+              >
+                <MinusCircle className="mr-1 h-3 w-3" /> Deduction
+              </Button>
+              <Button
+                size="sm"
+                variant={adjIsAddition ? 'default' : 'outline'}
+                onClick={() => setAdjIsAddition(true)}
+              >
+                <PlusCircle className="mr-1 h-3 w-3" /> Addition / Bonus
+              </Button>
+            </div>
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Input
+                value={adjDesc}
+                onChange={(e) => setAdjDesc(e.target.value)}
+                placeholder="e.g., Late penalty, Overtime bonus"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Amount (AED)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={adjAmount}
+                onChange={(e) => setAdjAmount(e.target.value)}
+                placeholder="0.00"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAdjustTarget(null)}>Cancel</Button>
+            <Button onClick={handleAddAdjustment} disabled={adjSubmitting}>
+              {adjSubmitting ? 'Adding…' : adjIsAddition ? 'Add Bonus' : 'Add Deduction'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

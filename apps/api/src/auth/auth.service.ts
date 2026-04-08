@@ -339,22 +339,58 @@ export class AuthService {
     };
   }
 
-  async updateProfile(userId: string, data: { email?: string; currentPassword?: string; newPassword?: string }) {
+  async updateProfile(userId: string, data: {
+    email?: string;
+    currentPassword?: string;
+    newPassword?: string;
+    fullName?: string;
+    phone?: string;
+    personalEmail?: string | null;
+    nationality?: string;
+    dateOfBirth?: string;
+    emergencyContact?: { name: string; relation: string; phone: string } | null;
+  }) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new UnauthorizedException("User not found");
 
-    const updateData: any = {};
-    if (data.email) updateData.email = data.email;
+    const userUpdate: any = {};
+    if (data.email) userUpdate.email = data.email;
     if (data.newPassword) {
       if (!data.currentPassword) throw new UnauthorizedException("Current password required");
       const ok = await bcrypt.compare(data.currentPassword, user.passwordHash);
       if (!ok) throw new UnauthorizedException("Current password is incorrect");
-      updateData.passwordHash = await bcrypt.hash(data.newPassword, 10);
+      userUpdate.passwordHash = await bcrypt.hash(data.newPassword, 10);
     }
 
-    if (Object.keys(updateData).length > 0) {
-      await this.prisma.user.update({ where: { id: userId }, data: updateData });
+    if (Object.keys(userUpdate).length > 0) {
+      await this.prisma.user.update({ where: { id: userId }, data: userUpdate });
     }
+
+    if (user.employeeId) {
+      const empUpdate: any = {};
+      if (data.fullName) empUpdate.fullName = data.fullName;
+      if (data.phone) empUpdate.phone = data.phone;
+      if (data.personalEmail !== undefined) empUpdate.personalEmail = data.personalEmail;
+      if (data.nationality) empUpdate.nationality = data.nationality;
+      if (data.dateOfBirth) empUpdate.dateOfBirth = new Date(data.dateOfBirth);
+
+      if (Object.keys(empUpdate).length > 0) {
+        await this.prisma.employee.update({ where: { id: user.employeeId }, data: empUpdate });
+      }
+
+      if (data.emergencyContact !== undefined) {
+        if (data.emergencyContact) {
+          await this.prisma.emergencyContact.upsert({
+            where: { employeeId: user.employeeId },
+            create: { employeeId: user.employeeId, ...data.emergencyContact },
+            update: data.emergencyContact,
+          });
+        } else {
+          await this.prisma.emergencyContact.deleteMany({ where: { employeeId: user.employeeId } });
+        }
+      }
+    }
+
     return this.getProfile(userId);
   }
 

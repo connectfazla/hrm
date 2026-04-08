@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
+import { Progress } from '@/components/ui/progress';
 import { Upload, FileText } from 'lucide-react';
 
 type ExpiringDoc = { id: string; category: string; originalFileName: string | null; expiryDate: string; employee?: { fullName: string } };
@@ -26,8 +27,9 @@ export default function AdminDocumentsPage() {
   const [employees, setEmployees] = React.useState<Employee[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [uploading, setUploading] = React.useState(false);
+  const [uploadProgress, setUploadProgress] = React.useState(0);
 
-  React.useEffect(() => {
+  const loadData = React.useCallback(() => {
     Promise.all([
       apiFetch<any>('/documents/expirations?withinDays=90'),
       apiFetch<{ employees: Employee[] }>('/employees'),
@@ -40,27 +42,48 @@ export default function AdminDocumentsPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  React.useEffect(() => { loadData(); }, [loadData]);
+
   const handleUpload = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const fd = new FormData(e.currentTarget);
+    const form = e.currentTarget;
+    const fd = new FormData(form);
     setUploading(true);
-    try {
-      const res = await fetch(`${API_BASE}/documents/upload`, {
-        method: 'POST',
-        body: fd,
-        credentials: 'include',
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.message ?? 'Upload failed');
+    setUploadProgress(0);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${API_BASE}/documents/upload`);
+    xhr.withCredentials = true;
+
+    xhr.upload.addEventListener('progress', (ev) => {
+      if (ev.lengthComputable) {
+        setUploadProgress(Math.round((ev.loaded / ev.total) * 100));
       }
-      toast.success('Document uploaded');
-      (e.target as HTMLFormElement).reset();
-    } catch (err) {
-      toast.error((err as Error).message);
-    } finally {
+    });
+
+    xhr.addEventListener('load', () => {
       setUploading(false);
-    }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        toast.success('Document uploaded');
+        form.reset();
+        setUploadProgress(0);
+        loadData();
+      } else {
+        try {
+          const data = JSON.parse(xhr.responseText);
+          toast.error(data.message ?? 'Upload failed');
+        } catch {
+          toast.error('Upload failed');
+        }
+      }
+    });
+
+    xhr.addEventListener('error', () => {
+      setUploading(false);
+      toast.error('Upload failed — network error');
+    });
+
+    xhr.send(fd);
   };
 
   if (loading) {
@@ -105,10 +128,16 @@ export default function AdminDocumentsPage() {
               <Label>Expiry Date</Label>
               <Input type="date" name="expiryDate" />
             </div>
-            <div className="sm:col-span-2">
+            <div className="sm:col-span-2 space-y-3">
               <Button type="submit" disabled={uploading}>
                 <Upload className="mr-2 h-4 w-4" />{uploading ? 'Uploading…' : 'Upload'}
               </Button>
+              {uploading && (
+                <div className="space-y-1">
+                  <Progress value={uploadProgress} className="h-2" />
+                  <p className="text-xs text-muted-foreground">{uploadProgress}% uploaded</p>
+                </div>
+              )}
             </div>
           </form>
         </CardContent>

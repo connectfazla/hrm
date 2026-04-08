@@ -198,6 +198,51 @@ export class PayrollService {
     return { csv, filename };
   }
 
+  async addManualAdjustment(payslipId: string, data: { description: string; amount: number; isAddition: boolean }) {
+    const payslip = await this.prisma.payslip.findUnique({ where: { id: payslipId } });
+    if (!payslip) throw new NotFoundException("Payslip not found");
+
+    const effectiveAmount = data.isAddition ? -Math.abs(data.amount) : Math.abs(data.amount);
+
+    const line = await this.prisma.payrollDeductionLine.create({
+      data: {
+        payslipId,
+        kind: PayrollDeductionKind.OTHER,
+        amount: effectiveAmount,
+        referenceType: "ManualAdjustment",
+        details: { description: data.description, isAddition: data.isAddition },
+      },
+    });
+
+    await this.recalcPayslipTotals(payslipId);
+    return line;
+  }
+
+  async removeAdjustment(lineId: string) {
+    const line = await this.prisma.payrollDeductionLine.findUnique({ where: { id: lineId } });
+    if (!line) throw new NotFoundException("Adjustment not found");
+
+    await this.prisma.payrollDeductionLine.delete({ where: { id: lineId } });
+    await this.recalcPayslipTotals(line.payslipId);
+  }
+
+  private async recalcPayslipTotals(payslipId: string) {
+    const payslip = await this.prisma.payslip.findUnique({
+      where: { id: payslipId },
+      include: { deductionLines: true },
+    });
+    if (!payslip) return;
+
+    const deductionsTotal = payslip.deductionLines.reduce((sum, l) => sum + Number(l.amount), 0);
+    const gross = Number(payslip.baseSalary) + Number(payslip.allowances);
+    const netPay = gross - deductionsTotal;
+
+    await this.prisma.payslip.update({
+      where: { id: payslipId },
+      data: { deductionsTotal, netPay },
+    });
+  }
+
   async renderPayslipPdf(payslipId: string) {
     // Minimal PDF generation: plain text summary.
     const payslip = await this.prisma.payslip.findUnique({

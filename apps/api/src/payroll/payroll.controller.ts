@@ -1,4 +1,5 @@
-import { Controller, Get, Param, Post, Req, Res, UseGuards, Query } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Post, Req, Res, UseGuards, Query } from "@nestjs/common";
+import { z } from "zod";
 import type { Response, Request } from "express";
 import { AccessTokenGuard } from "../auth/guards/access-token.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
@@ -52,6 +53,34 @@ export class PayrollController {
     const actorUserId = req.user?.userId;
     if (!actorUserId) return { message: "Unauthorized" };
     return this.payroll.runPayroll(month, actorUserId);
+  }
+
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Post(":payslipId/adjustment")
+  async addAdjustment(
+    @Param("payslipId") payslipId: string,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const schema = z.object({
+      description: z.string().min(1),
+      amount: z.number().positive(),
+      isAddition: z.boolean(),
+    });
+    const parsed = schema.safeParse(body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid adjustment data" });
+
+    const line = await this.payroll.addManualAdjustment(payslipId, parsed.data);
+    return res.json({ adjustment: line });
+  }
+
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Delete("adjustment/:lineId")
+  async removeAdjustment(@Param("lineId") lineId: string) {
+    await this.payroll.removeAdjustment(lineId);
+    return { ok: true };
   }
 
   @UseGuards(AccessTokenGuard)

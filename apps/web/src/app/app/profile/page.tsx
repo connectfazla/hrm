@@ -85,11 +85,19 @@ export default function ProfilePage() {
   const { state, setUser } = useAuth();
   const [profile, setProfile] = React.useState<ProfileData | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const [editingPersonal, setEditingPersonal] = React.useState(false);
+  const [savingPersonal, setSavingPersonal] = React.useState(false);
 
   const [currentPassword, setCurrentPassword] = React.useState('');
   const [newPassword, setNewPassword] = React.useState('');
   const [confirmPassword, setConfirmPassword] = React.useState('');
   const [saving, setSaving] = React.useState(false);
+
+  const loadProfile = React.useCallback(() => {
+    apiFetch<{ profile: ProfileData }>('/auth/me')
+      .then((res) => setProfile(res.profile))
+      .catch(() => toast.error('Failed to load profile'));
+  }, []);
 
   React.useEffect(() => {
     apiFetch<{ profile: ProfileData }>('/auth/me')
@@ -97,6 +105,40 @@ export default function ProfilePage() {
       .catch(() => toast.error('Failed to load profile'))
       .finally(() => setLoading(false));
   }, []);
+
+  async function handleSavePersonal(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const get = (k: string) => fd.get(k)?.toString() ?? '';
+    setSavingPersonal(true);
+    try {
+      const payload: Record<string, unknown> = {
+        fullName: get('fullName') || undefined,
+        phone: get('phone') || undefined,
+        personalEmail: get('personalEmail') || null,
+        nationality: get('nationality') || undefined,
+        dateOfBirth: get('dateOfBirth') || undefined,
+      };
+      const ecName = get('ecName');
+      if (ecName) {
+        payload.emergencyContact = { name: ecName, relation: get('ecRelation'), phone: get('ecPhone') };
+      }
+      const res = await apiFetch<{ profile: ProfileData }>('/auth/profile', {
+        method: 'PUT',
+        json: payload,
+      });
+      setProfile(res.profile);
+      if (res.profile.fullName && setUser) {
+        setUser({ ...state.user!, fullName: res.profile.fullName });
+      }
+      setEditingPersonal(false);
+      toast.success('Personal info updated');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update');
+    } finally {
+      setSavingPersonal(false);
+    }
+  }
 
   async function handleChangePassword(e: React.FormEvent) {
     e.preventDefault();
@@ -192,13 +234,16 @@ export default function ProfilePage() {
       </Card>
 
       {/* Personal Information */}
-      {emp && (
+      {emp && !editingPersonal && (
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="flex items-center gap-2 text-base">
               <User className="h-4 w-4" />
               Personal information
             </CardTitle>
+            <Button variant="ghost" size="sm" onClick={() => setEditingPersonal(true)}>
+              <Save className="mr-1 h-3 w-3" /> Edit
+            </Button>
           </CardHeader>
           <CardContent>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -209,6 +254,66 @@ export default function ProfilePage() {
               <InfoRow icon={Mail} label="Work email" value={emp.workEmail ?? '—'} />
               <InfoRow icon={Mail} label="Personal email" value={emp.personalEmail ?? '—'} />
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {emp && editingPersonal && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <User className="h-4 w-4" />
+              Edit personal information
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSavePersonal} className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="fullName">Full name</Label>
+                  <Input id="fullName" name="fullName" defaultValue={emp.fullName} required />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Phone</Label>
+                  <Input id="phone" name="phone" defaultValue={emp.phone} required />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="personalEmail">Personal email</Label>
+                  <Input id="personalEmail" name="personalEmail" type="email" defaultValue={emp.personalEmail ?? ''} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="nationality">Nationality</Label>
+                  <Input id="nationality" name="nationality" defaultValue={emp.nationality} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="dateOfBirth">Date of birth</Label>
+                  <Input id="dateOfBirth" name="dateOfBirth" type="date" defaultValue={emp.dateOfBirth?.slice(0, 10)} />
+                </div>
+              </div>
+              <Separator />
+              <p className="text-sm font-medium">Emergency contact</p>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="space-y-2">
+                  <Label htmlFor="ecName">Name</Label>
+                  <Input id="ecName" name="ecName" defaultValue={profile?.employee?.emergencyContact?.name ?? ''} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="ecRelation">Relation</Label>
+                  <Input id="ecRelation" name="ecRelation" defaultValue={profile?.employee?.emergencyContact?.relation ?? ''} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="ecPhone">Phone</Label>
+                  <Input id="ecPhone" name="ecPhone" defaultValue={profile?.employee?.emergencyContact?.phone ?? ''} />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button type="submit" disabled={savingPersonal}>
+                  <Save className="mr-2 h-4 w-4" />
+                  {savingPersonal ? 'Saving…' : 'Save changes'}
+                </Button>
+                <Button type="button" variant="ghost" onClick={() => setEditingPersonal(false)}>Cancel</Button>
+              </div>
+            </form>
           </CardContent>
         </Card>
       )}
@@ -327,7 +432,7 @@ export default function ProfilePage() {
             </div>
           </div>
           <p className="mt-3 text-xs text-muted-foreground">
-            To update your personal details (name, phone, etc.), please contact your HR administrator.
+            Work email and role are managed by your HR administrator.
           </p>
         </CardContent>
       </Card>

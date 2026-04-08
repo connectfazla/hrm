@@ -8,9 +8,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Check, X, CalendarDays, Clock, Search } from 'lucide-react';
 
 type LeaveRequest = {
@@ -177,7 +179,26 @@ export default function AdminLeavePage() {
                     {new Date(r.startDate).toLocaleDateString('en-AE', { month: 'short', day: 'numeric' })} – {new Date(r.endDate).toLocaleDateString('en-AE', { month: 'short', day: 'numeric' })}
                   </TableCell>
                   <TableCell className="font-medium">{dayCount(r.startDate, r.endDate)}</TableCell>
-                  <TableCell className="max-w-[200px] truncate text-muted-foreground">{r.reason}</TableCell>
+                  <TableCell className="max-w-[250px]">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button className="max-w-full truncate text-left text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+                          {r.reason}
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-80 text-sm">
+                        <p className="font-medium mb-1">Reason</p>
+                        <p className="text-muted-foreground whitespace-pre-wrap">{r.reason}</p>
+                        {r.adminComment && (
+                          <>
+                            <Separator className="my-2" />
+                            <p className="font-medium mb-1">Admin Comment</p>
+                            <p className="text-muted-foreground whitespace-pre-wrap">{r.adminComment}</p>
+                          </>
+                        )}
+                      </PopoverContent>
+                    </Popover>
+                  </TableCell>
                   <TableCell><Badge variant={statusVariant(r.status)}>{r.status}</Badge></TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {new Date(r.createdAt).toLocaleDateString('en-AE', { month: 'short', day: 'numeric' })}

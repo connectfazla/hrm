@@ -37,6 +37,16 @@ const updateProfileSchema = z.object({
   email: z.string().email().optional(),
   currentPassword: z.string().optional(),
   newPassword: z.string().min(8).optional(),
+  fullName: z.string().min(1).optional(),
+  phone: z.string().optional(),
+  personalEmail: z.string().email().optional().nullable(),
+  nationality: z.string().optional(),
+  dateOfBirth: z.string().optional(),
+  emergencyContact: z.object({
+    name: z.string().min(1),
+    relation: z.string().min(1),
+    phone: z.string().min(1),
+  }).optional().nullable(),
 });
 
 @Controller("auth")

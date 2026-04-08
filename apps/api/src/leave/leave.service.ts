@@ -164,15 +164,19 @@ export class LeaveService {
         },
       });
 
-      await this.notifications.notifyEmployeeDecision({
-        employeeId: leaveRequest.employeeId,
-        leaveRequestId: updated.id,
-        decision: "REJECTED",
-        adminComment: comment,
-        type: leaveRequest.type,
-        startDate: leaveRequest.startDate.toISOString().slice(0, 10),
-        endDate: leaveRequest.endDate.toISOString().slice(0, 10),
-      });
+      try {
+        await this.notifications.notifyEmployeeDecision({
+          employeeId: leaveRequest.employeeId,
+          leaveRequestId: updated.id,
+          decision: "REJECTED",
+          adminComment: comment,
+          type: leaveRequest.type,
+          startDate: leaveRequest.startDate.toISOString().slice(0, 10),
+          endDate: leaveRequest.endDate.toISOString().slice(0, 10),
+        });
+      } catch {
+        // Notification failure should not block the leave decision
+      }
 
       return updated;
     }
@@ -214,15 +218,19 @@ export class LeaveService {
       }
     });
 
-    await this.notifications.notifyEmployeeDecision({
-      employeeId: leaveRequest.employeeId,
-      leaveRequestId: updated.id,
-      decision: "APPROVED",
-      adminComment: comment,
-      type: leaveRequest.type,
-      startDate: leaveRequest.startDate.toISOString().slice(0, 10),
-      endDate: leaveRequest.endDate.toISOString().slice(0, 10),
-    });
+    try {
+      await this.notifications.notifyEmployeeDecision({
+        employeeId: leaveRequest.employeeId,
+        leaveRequestId: updated.id,
+        decision: "APPROVED",
+        adminComment: comment,
+        type: leaveRequest.type,
+        startDate: leaveRequest.startDate.toISOString().slice(0, 10),
+        endDate: leaveRequest.endDate.toISOString().slice(0, 10),
+      });
+    } catch {
+      // Notification failure should not block the leave decision
+    }
 
     return updated;
   }

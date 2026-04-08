@@ -54,18 +54,19 @@ services:
     ports:
       - "${WEB_PORT:-3000}:3000"
 
-  # Run migrations + seed (one-off, not a long-running service)
+  # Run migrations + seed (one-off, uses build stage which has all deps)
   migrate:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
+      target: build
     depends_on:
       postgres:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://${DB_USER:-uppearance}:${DB_PASSWORD:-uppearance}@postgres:5432/${DB_NAME:-uppearance_hrms}
     command: >
-      sh -c "cd /app && npx prisma migrate deploy --schema=prisma/schema.prisma && npx prisma db seed"
+      sh -c "npx prisma migrate deploy && npx prisma db seed"
     profiles:
       - setup
 

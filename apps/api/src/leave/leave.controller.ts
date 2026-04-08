@@ -37,6 +37,21 @@ export class LeaveController {
   constructor(private readonly leave: LeaveService) {}
 
   @UseGuards(AccessTokenGuard)
+  @Get("requests")
+  async listRequests(
+    @Req() req: RequestWithUser,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const role = req.user!.role;
+    const employeeId = req.user!.employeeId ?? null;
+    const status = (req.query as Record<string, string>).status;
+    const validStatuses = ["PENDING", "APPROVED", "REJECTED"];
+    const safeStatus = status && validStatuses.includes(status) ? status : undefined;
+    const requests = await this.leave.listRequests(role, employeeId, safeStatus as any);
+    return res.json({ leaveRequests: requests });
+  }
+
+  @UseGuards(AccessTokenGuard)
   @Post("request")
   async requestLeave(
     @Req() req: RequestWithUser,

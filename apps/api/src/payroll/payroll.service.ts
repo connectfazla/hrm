@@ -138,6 +138,26 @@ export class PayrollService {
     return payslip;
   }
 
+  async listPayslips(access: AccessContext, employeeId: string) {
+    if (access.role !== Role.ADMIN && access.employeeId !== employeeId) {
+      throw new ForbiddenException("Not allowed");
+    }
+    return this.prisma.payslip.findMany({
+      where: { employeeId },
+      orderBy: { month: "desc" },
+      select: {
+        id: true,
+        month: true,
+        baseSalary: true,
+        allowances: true,
+        deductionsTotal: true,
+        netPay: true,
+        dailyRate: true,
+        generatedAt: true,
+      },
+    });
+  }
+
   async exportPayrollCsv(access: AccessContext, monthParam: string) {
     if (access.role !== Role.ADMIN) throw new ForbiddenException("Admin only");
 

@@ -5,15 +5,13 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { forgotPassword } from '@/lib/auth';
 
-const schema = z.object({
-  email: z.string().email(),
-});
+const schema = z.object({ email: z.string().email() });
 type FormValues = z.infer<typeof schema>;
 
 export default function ForgotPasswordPage() {
@@ -24,41 +22,48 @@ export default function ForgotPasswordPage() {
       await forgotPassword(values.email);
       toast.success('If that account exists, a reset email has been sent.');
     } catch {
-      // keep response ambiguous
       toast.success('If that account exists, a reset email has been sent.');
     }
   };
 
   return (
-    <div className="flex flex-1 items-center justify-center px-4 py-10">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <h1 className="text-xl font-semibold">Reset your password</h1>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            Enter your work email and we’ll send a reset link.
-          </p>
-        </CardHeader>
-        <CardContent>
-          <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
-            <div className="space-y-2">
-              <Label htmlFor="email">Work email</Label>
-              <Input id="email" type="email" autoComplete="email" {...form.register('email')} />
-              {form.formState.errors.email && (
-                <p className="text-sm text-red-600">{form.formState.errors.email.message}</p>
-              )}
+    <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4 py-10">
+      <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,hsl(var(--muted))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--muted))_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_50%_50%_at_50%_50%,#000_70%,transparent_100%)]" />
+      <div className="w-full max-w-sm">
+        <div className="mb-8 text-center">
+          <Link href="/" className="inline-flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
+              <span className="text-sm font-bold text-primary-foreground">U</span>
             </div>
-            <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
-              {form.formState.isSubmitting ? 'Sending…' : 'Send reset link'}
-            </Button>
-            <div className="text-center text-sm text-zinc-600 dark:text-zinc-400">
-              <Link className="hover:text-zinc-900 dark:hover:text-zinc-50" href="/login">
+            <span className="text-lg font-semibold tracking-tight">Uppearance</span>
+          </Link>
+        </div>
+        <Card>
+          <CardHeader className="text-center">
+            <CardTitle className="text-xl">Reset your password</CardTitle>
+            <CardDescription>Enter your work email and we&apos;ll send a reset link.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
+              <div className="space-y-2">
+                <Label htmlFor="email">Work email</Label>
+                <Input id="email" type="email" placeholder="you@company.com" autoComplete="email" {...form.register('email')} />
+                {form.formState.errors.email && (
+                  <p className="text-sm text-destructive">{form.formState.errors.email.message}</p>
+                )}
+              </div>
+              <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+                {form.formState.isSubmitting ? 'Sending…' : 'Send reset link'}
+              </Button>
+            </form>
+            <div className="mt-4 text-center text-sm text-muted-foreground">
+              <Link className="font-medium text-foreground hover:underline" href="/login">
                 Back to sign in
               </Link>
             </div>
-          </form>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
-

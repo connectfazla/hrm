@@ -236,6 +236,23 @@ export class LeaveService {
     return snapshot;
   }
 
+  async listRequests(role: Role, employeeId: string | null, status?: LeaveStatus) {
+    if (role === Role.ADMIN) {
+      return this.prisma.leaveRequest.findMany({
+        where: status ? { status } : undefined,
+        include: { employee: { select: { id: true, fullName: true } } },
+        orderBy: { createdAt: "desc" },
+        take: 200,
+      });
+    }
+    if (!employeeId) return [];
+    return this.prisma.leaveRequest.findMany({
+      where: { employeeId, ...(status ? { status } : {}) },
+      orderBy: { createdAt: "desc" },
+      take: 200,
+    });
+  }
+
   private async getLatestSnapshot(employeeId: string) {
     const now = new Date();
 

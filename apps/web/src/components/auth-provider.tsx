@@ -12,6 +12,7 @@ type AuthState =
 
 const AuthContext = React.createContext<{
   state: AuthState;
+  setUser: (user: SessionUser) => void;
   refresh: () => Promise<void>;
   logout: () => Promise<void>;
 } | null>(null);
@@ -28,6 +29,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const setUser = React.useCallback((user: SessionUser) => {
+    setState({ status: 'authenticated', user });
+  }, []);
+
   const logout = React.useCallback(async () => {
     try {
       await apiLogout();
@@ -42,7 +47,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     void refresh();
   }, [refresh]);
 
-  return <AuthContext.Provider value={{ state, refresh, logout }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ state, setUser, refresh, logout }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

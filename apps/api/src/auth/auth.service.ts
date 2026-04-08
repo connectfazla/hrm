@@ -30,6 +30,64 @@ export class AuthService {
         : undefined,
   });
 
+  async register(fullName: string, email: string, companyName: string, password: string): Promise<LoginResult> {
+    const passwordHash = await bcrypt.hash(password, 10);
+    const now = new Date();
+    const sixMonthsLater = new Date(now.getTime() + 180 * 24 * 60 * 60 * 1000);
+
+    try {
+      const existing = await this.prisma.user.findUnique({ where: { email } });
+      if (existing) throw new UnauthorizedException("Email already registered");
+
+      const employee = await this.prisma.employee.create({
+        data: {
+          fullName,
+          jobTitle: "Administrator",
+          department: companyName,
+          dateOfBirth: new Date("1990-01-01"),
+          nationality: "UAE",
+          phone: "+971500000000",
+          emiratesIdNumber: "000-0000-0000000-0",
+          emiratesIdExpiryDate: sixMonthsLater,
+          passportNumber: "PENDING",
+          passportExpiryDate: sixMonthsLater,
+          dateJoined: now,
+          employmentType: "FULL_TIME",
+          probationStatus: "CONFIRMED",
+          probationEndDate: now,
+          workEmail: email,
+          compensation: { create: { baseSalary: 0, allowances: 0 } },
+        },
+      });
+
+      const user = await this.prisma.user.create({
+        data: { email, passwordHash, role: "ADMIN", employeeId: employee.id },
+      });
+
+      const accessToken = this.signAccessToken(user);
+      const refreshToken = randomToken(48);
+      const refreshTokenHash = sha256Hex(refreshToken);
+
+      await this.prisma.refreshToken.create({
+        data: {
+          userId: user.id,
+          tokenHash: refreshTokenHash,
+          expiresAt: new Date(now.getTime() + this.refreshTtlMs),
+          lastActivityAt: now,
+        },
+      });
+
+      return {
+        accessToken,
+        refreshToken,
+        user: { userId: user.id, role: user.role, employeeId: user.employeeId },
+      };
+    } catch (e) {
+      if (e instanceof UnauthorizedException) throw e;
+      throw this.mapDbError(e);
+    }
+  }
+
   async login(email: string, password: string): Promise<LoginResult> {
     let user: any;
     try {

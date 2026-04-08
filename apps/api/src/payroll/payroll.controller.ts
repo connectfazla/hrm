@@ -12,6 +12,18 @@ type RequestWithUser = Request & { user?: { userId: string; role: Role; employee
 export class PayrollController {
   constructor(private readonly payroll: PayrollService) {}
 
+  @UseGuards(AccessTokenGuard)
+  @Get("employee/:employeeId/payslips")
+  async listPayslips(
+    @Param("employeeId") employeeId: string,
+    @Req() req: RequestWithUser,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const access = { role: req.user?.role as Role, employeeId: req.user?.employeeId ?? null };
+    const payslips = await this.payroll.listPayslips(access, employeeId);
+    return res.json({ payslips });
+  }
+
   @UseGuards(AccessTokenGuard, RolesGuard)
   @Roles(Role.ADMIN)
   @Post(":month/run")

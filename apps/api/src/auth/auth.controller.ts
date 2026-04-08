@@ -8,6 +8,13 @@ const loginSchema = z.object({
   password: z.string().min(8),
 });
 
+const registerSchema = z.object({
+  fullName: z.string().min(2),
+  email: z.string().email(),
+  companyName: z.string().min(2),
+  password: z.string().min(8),
+});
+
 const refreshSchema = z.object({
   // No body needed; cookie-based refresh.
 });
@@ -26,6 +33,24 @@ type CookiesRequest = Request & { cookies?: Record<string, string> };
 @Controller("auth")
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
+
+  @Post("register")
+  async register(
+    @Body() body: unknown,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<unknown> {
+    const parsed = registerSchema.safeParse(body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: "Invalid registration request" });
+    }
+
+    const { fullName, email, companyName, password } = parsed.data;
+    const result = await this.auth.register(fullName, email, companyName, password);
+
+    this.setCookies(res, result.accessToken, result.refreshToken);
+
+    return res.json({ user: result.user });
+  }
 
   @Post("login")
   async login(

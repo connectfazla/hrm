@@ -130,6 +130,35 @@ export class AttendanceService {
     return updated;
   }
 
+  async getSessions(
+    access: AccessContext,
+    employeeIdParam: string,
+    from: Date | null,
+    to: Date | null,
+    limit: number,
+  ) {
+    if (access.role !== Role.ADMIN) {
+      if (!access.employeeId || access.employeeId !== employeeIdParam) {
+        throw new ForbiddenException("Not allowed");
+      }
+    }
+
+    const start = from ?? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const end = to ?? new Date();
+
+    const sessions = await this.prisma.workSession.findMany({
+      where: {
+        employeeId: employeeIdParam,
+        clockInAt: { gte: start, lte: end },
+      },
+      include: { lunches: true },
+      orderBy: { clockInAt: "desc" },
+      take: limit,
+    });
+
+    return { sessions };
+  }
+
   async getTimesheet(
     access: AccessContext,
     employeeIdParam: string,
@@ -321,7 +350,7 @@ export class AttendanceService {
       chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)),
     );
 
-    doc.fontSize(16).text("Upappearance HRMS", { align: "center" });
+    doc.fontSize(16).text("Uppearance HRMS", { align: "center" });
     doc.moveDown(0.5);
     doc.fontSize(12).text(`Timesheet (${period})`, { align: "center" });
     doc.moveDown(0.5);

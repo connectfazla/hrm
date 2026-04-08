@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useAuth } from '@/components/auth-provider';
-import { Card, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,9 +10,9 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
-import { Download, FileSpreadsheet } from 'lucide-react';
+import { Download, FileSpreadsheet, Clock, Coffee } from 'lucide-react';
 
-type TimesheetEntry = {
+type WorkSession = {
   id: string;
   clockInAt: string;
   clockOutAt: string | null;
@@ -24,11 +24,18 @@ type TimesheetEntry = {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000/api/v1';
 
+function diffHours(start: string, end: string | null) {
+  if (!end) return '—';
+  const ms = new Date(end).getTime() - new Date(start).getTime();
+  const h = Math.floor(ms / 3600000);
+  const m = Math.floor((ms % 3600000) / 60000);
+  return `${h}h ${m}m`;
+}
+
 export default function TimesheetPage() {
   const { state } = useAuth();
-  const [entries, setEntries] = React.useState<TimesheetEntry[]>([]);
+  const [sessions, setSessions] = React.useState<WorkSession[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const [period, setPeriod] = React.useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [from, setFrom] = React.useState('');
   const [to, setTo] = React.useState('');
 
@@ -46,22 +53,22 @@ export default function TimesheetPage() {
     if (!employeeId || !from || !to) return;
     setLoading(true);
     try {
-      const params = new URLSearchParams({ period, from, to });
-      const res = await apiFetch<any>(`/attendance/${employeeId}?${params}`);
-      setEntries(Array.isArray(res) ? res : (res.sessions ?? res.entries ?? []));
+      const params = new URLSearchParams({ from, to, limit: '200' });
+      const res = await apiFetch<{ sessions: WorkSession[] }>(`/attendance/${employeeId}/sessions?${params}`);
+      setSessions(res.sessions ?? []);
     } catch {
       toast.error('Failed to load timesheet');
     } finally {
       setLoading(false);
     }
-  }, [employeeId, period, from, to]);
+  }, [employeeId, from, to]);
 
   React.useEffect(() => { fetchData(); }, [fetchData]);
 
   const exportSheet = async (format: 'csv' | 'pdf') => {
     if (!employeeId) return;
     try {
-      const params = new URLSearchParams({ period, from, to, format });
+      const params = new URLSearchParams({ period: 'daily', from, to, format });
       const res = await fetch(`${API_BASE}/attendance/${employeeId}/export?${params}`, { credentials: 'include' });
       if (!res.ok) throw new Error('Export failed');
       const blob = await res.blob();
@@ -78,6 +85,13 @@ export default function TimesheetPage() {
 
   if (state.status !== 'authenticated') return null;
 
+  const totalHours = sessions.reduce((sum, s) => {
+    if (!s.clockOutAt) return sum;
+    return sum + (new Date(s.clockOutAt).getTime() - new Date(s.clockInAt).getTime()) / 3600000;
+  }, 0);
+  const totalLunch = sessions.reduce((sum, s) => sum + (s.lunches?.reduce((a, l) => a + l.durationMinutes, 0) ?? 0), 0);
+  const lateCount = sessions.filter(s => s.late).length;
+
   return (
     <div className="space-y-6">
       <div>
@@ -85,21 +99,10 @@ export default function TimesheetPage() {
         <p className="text-muted-foreground">Review your attendance records.</p>
       </div>
 
+      {/* Filters */}
       <Card>
-        <CardHeader>
+        <CardHeader className="pb-4">
           <div className="flex flex-wrap items-end gap-4">
-            <div className="space-y-2">
-              <Label className="text-xs">Period</Label>
-              <select
-                value={period}
-                onChange={(e) => setPeriod(e.target.value as 'daily' | 'weekly' | 'monthly')}
-                className="flex h-9 w-32 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              >
-                <option value="daily">Daily</option>
-                <option value="weekly">Weekly</option>
-                <option value="monthly">Monthly</option>
-              </select>
-            </div>
             <div className="space-y-2">
               <Label className="text-xs">From</Label>
               <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-40" />
@@ -118,15 +121,50 @@ export default function TimesheetPage() {
             </div>
           </div>
         </CardHeader>
+      </Card>
+
+      {/* Summary Cards */}
+      {!loading && sessions.length > 0 && (
+        <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+          <Card>
+            <CardContent className="pt-4 pb-3 text-center">
+              <p className="text-2xl font-bold">{sessions.length}</p>
+              <p className="text-xs text-muted-foreground">Work Days</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 pb-3 text-center">
+              <p className="text-2xl font-bold">{totalHours.toFixed(1)}h</p>
+              <p className="text-xs text-muted-foreground">Total Hours</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 pb-3 text-center">
+              <p className="text-2xl font-bold">{totalLunch}m</p>
+              <p className="text-xs text-muted-foreground">Total Lunch</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 pb-3 text-center">
+              <p className={`text-2xl font-bold ${lateCount > 0 ? 'text-destructive' : ''}`}>{lateCount}</p>
+              <p className="text-xs text-muted-foreground">Late Arrivals</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Sessions Table */}
+      <Card>
         {loading ? (
-          <div className="flex items-center justify-center py-12">
+          <div className="flex items-center justify-center py-16">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
           </div>
-        ) : entries.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-            <FileSpreadsheet className="mb-3 h-8 w-8 opacity-40" />
-            <p className="text-sm">No entries found for this period.</p>
-          </div>
+        ) : sessions.length === 0 ? (
+          <CardContent className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+            <FileSpreadsheet className="mb-3 h-10 w-10 opacity-30" />
+            <p className="text-sm font-medium">No entries found</p>
+            <p className="text-xs mt-1">Adjust the date range or clock in to start tracking.</p>
+          </CardContent>
         ) : (
           <Table>
             <TableHeader>
@@ -134,26 +172,44 @@ export default function TimesheetPage() {
                 <TableHead>Date</TableHead>
                 <TableHead>Clock In</TableHead>
                 <TableHead>Clock Out</TableHead>
+                <TableHead>Duration</TableHead>
                 <TableHead>Lunch</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Comment</TableHead>
+                <TableHead className="hidden md:table-cell">Comment</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {entries.map((e) => (
-                <TableRow key={e.id}>
-                  <TableCell className="font-medium">{new Date(e.clockInAt).toLocaleDateString('en-AE')}</TableCell>
-                  <TableCell>{new Date(e.clockInAt).toLocaleTimeString('en-AE', { hour: '2-digit', minute: '2-digit' })}</TableCell>
-                  <TableCell>{e.clockOutAt ? new Date(e.clockOutAt).toLocaleTimeString('en-AE', { hour: '2-digit', minute: '2-digit' }) : '—'}</TableCell>
-                  <TableCell>{e.lunches?.reduce((s, l) => s + l.durationMinutes, 0) ?? 0} min</TableCell>
+              {sessions.map((s) => (
+                <TableRow key={s.id}>
+                  <TableCell className="font-medium">
+                    {new Date(s.clockInAt).toLocaleDateString('en-AE', { weekday: 'short', month: 'short', day: 'numeric' })}
+                  </TableCell>
                   <TableCell>
-                    {e.late ? (
-                      <Badge variant="destructive">{e.lateByMinutes}m late</Badge>
+                    <div className="flex items-center gap-1.5">
+                      <Clock className="h-3 w-3 text-muted-foreground" />
+                      {new Date(s.clockInAt).toLocaleTimeString('en-AE', { hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {s.clockOutAt ? new Date(s.clockOutAt).toLocaleTimeString('en-AE', { hour: '2-digit', minute: '2-digit' }) : '—'}
+                  </TableCell>
+                  <TableCell className="font-medium">{diffHours(s.clockInAt, s.clockOutAt)}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1.5 text-muted-foreground">
+                      <Coffee className="h-3 w-3" />
+                      {s.lunches?.reduce((a, l) => a + l.durationMinutes, 0) ?? 0}m
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {s.late ? (
+                      <Badge variant="destructive">{s.lateByMinutes}m late</Badge>
                     ) : (
                       <Badge variant="success">On time</Badge>
                     )}
                   </TableCell>
-                  <TableCell className="max-w-[200px] truncate text-muted-foreground">{e.workComment ?? '—'}</TableCell>
+                  <TableCell className="hidden md:table-cell max-w-[200px] truncate text-muted-foreground">
+                    {s.workComment ?? '—'}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

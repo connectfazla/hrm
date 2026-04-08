@@ -43,11 +43,16 @@ export class LeaveController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const role = req.user!.role;
-    const employeeId = req.user!.employeeId ?? null;
-    const status = (req.query as Record<string, string>).status;
+    const query = req.query as Record<string, string>;
+    const status = query.status;
     const validStatuses = ["PENDING", "APPROVED", "REJECTED"];
     const safeStatus = status && validStatuses.includes(status) ? status : undefined;
-    const requests = await this.leave.listRequests(role, employeeId, safeStatus as any);
+
+    // Admins can filter by a specific employee via ?employeeId=…
+    const filterEmployeeId =
+      role === Role.ADMIN && query.employeeId ? query.employeeId : req.user!.employeeId ?? null;
+
+    const requests = await this.leave.listRequests(role, filterEmployeeId, safeStatus as any);
     return res.json({ leaveRequests: requests });
   }
 

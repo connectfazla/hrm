@@ -238,8 +238,11 @@ export class LeaveService {
 
   async listRequests(role: Role, employeeId: string | null, status?: LeaveStatus) {
     if (role === Role.ADMIN) {
+      const where: any = {};
+      if (status) where.status = status;
+      if (employeeId) where.employeeId = employeeId;
       return this.prisma.leaveRequest.findMany({
-        where: status ? { status } : undefined,
+        where: Object.keys(where).length ? where : undefined,
         include: { employee: { select: { id: true, fullName: true } } },
         orderBy: { createdAt: "desc" },
         take: 200,

@@ -8,8 +8,9 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.setGlobalPrefix("api/v1");
 
+  const corsOrigin = process.env.CORS_ORIGIN ?? process.env.WEB_BASE_URL ?? "http://localhost:3000";
   app.enableCors({
-    origin: process.env.WEB_BASE_URL ?? "http://localhost:3000",
+    origin: corsOrigin.includes(",") ? corsOrigin.split(",").map((s) => s.trim()) : corsOrigin,
     credentials: true,
   });
 
@@ -26,8 +27,8 @@ async function bootstrap() {
   );
 
   const swaggerConfig = new DocumentBuilder()
-    .setTitle("Upappearance HRMS API")
-    .setDescription("REST API for Upappearance HR management system")
+    .setTitle("Uppearance HRMS API")
+    .setDescription("REST API for Uppearance HR management system")
     .setVersion("1.0")
     .addBearerAuth()
     .build();

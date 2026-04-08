@@ -62,6 +62,23 @@ export class AttendanceController {
   }
 
   @UseGuards(AccessTokenGuard)
+  @Get("attendance/:employeeId/sessions")
+  async sessions(
+    @Req() req: RequestWithUser,
+    @Param("employeeId") employeeId: string,
+    @Query("from") from?: string,
+    @Query("to") to?: string,
+    @Query("limit") limitQ?: string,
+  ) {
+    const role = req.user?.role!;
+    const access = { role, employeeId: req.user?.employeeId ?? null };
+    const fromDate = from ? new Date(from) : null;
+    const toDate = to ? new Date(to) : null;
+    const limit = limitQ ? Math.min(Number(limitQ), 500) : 100;
+    return this.attendance.getSessions(access, employeeId, fromDate, toDate, limit);
+  }
+
+  @UseGuards(AccessTokenGuard)
   @Get("attendance/:employeeId")
   async timesheet(
     @Req() req: RequestWithUser,

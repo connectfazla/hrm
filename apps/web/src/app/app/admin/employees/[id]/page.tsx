@@ -10,10 +10,16 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
-import { ArrowLeft, Download, Edit, Save, X } from 'lucide-react';
+import {
+  ArrowLeft, Download, Edit, Save, X,
+  Mail, Phone, Globe, Calendar, Building2, BadgeCheck,
+  CreditCard, Landmark, AlertTriangle, UserRound, FileText,
+  TrendingUp, CalendarDays, ClipboardList,
+} from 'lucide-react';
 
 type EmployeeDetail = {
   id: string;
@@ -56,6 +62,8 @@ type DocRecord = {
   sizeBytes: number;
   expiryDate: string | null;
   createdAt: string;
+  daysUntil?: number | null;
+  warningLevel?: string | null;
 };
 
 type LeaveRecord = {
@@ -74,19 +82,27 @@ type AttendanceRecord = {
   late: boolean;
   lateByMinutes: number;
   workComment: string | null;
+  lunches?: { startAt: string; endAt: string | null; durationMinutes: number }[];
 };
 
-function InfoRow({ label, value, children }: { label: string; value?: string; children?: React.ReactNode }) {
+const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('en-AE', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
+const fmtCurrency = (v: number | string) => `AED ${Number(v).toLocaleString('en-AE', { minimumFractionDigits: 2 })}`;
+
+function initials(name: string) {
+  return name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+}
+
+function InfoRow({ icon: Icon, label, value, children }: { icon?: React.ElementType; label: string; value?: string; children?: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between py-2">
-      <span className="text-sm text-muted-foreground">{label}</span>
-      {children ?? <span className="text-sm font-medium">{value ?? '—'}</span>}
+    <div className="flex items-start gap-3 py-2.5">
+      {Icon && <Icon className="mt-0.5 h-4 w-4 text-muted-foreground shrink-0" />}
+      <div className="flex-1 min-w-0">
+        <p className="text-xs text-muted-foreground">{label}</p>
+        {children ?? <p className="text-sm font-medium truncate">{value ?? '—'}</p>}
+      </div>
     </div>
   );
 }
-
-const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('en-AE') : '—';
-const fmtCurrency = (v: number | string) => `AED ${Number(v).toLocaleString('en-AE', { minimumFractionDigits: 2 })}`;
 
 export default function EmployeeDetailPage() {
   const params = useParams();
@@ -99,17 +115,33 @@ export default function EmployeeDetailPage() {
   const [editing, setEditing] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
+  const [activeTab, setActiveTab] = React.useState('overview');
 
   React.useEffect(() => {
-    Promise.all([
-      apiFetch<{ employee: EmployeeDetail }>(`/employees/${id}`).then((r) => setEmp(r.employee)),
-      apiFetch<{ documents: DocRecord[] }>(`/documents/${id}`).then((r) => setDocs(r.documents)).catch(() => setDocs([])),
-      apiFetch<{ leaveRequests: LeaveRecord[] }>(`/leave/requests?employeeId=${id}`).then((r) => setLeaves(r.leaveRequests)).catch(() => setLeaves([])),
-      apiFetch<{ sessions: AttendanceRecord[] }>(`/attendance/timesheet/${id}?from=2024-01-01&to=2030-12-31`).then((r) => setAttendance(r.sessions)).catch(() => setAttendance([])),
-    ])
+    apiFetch<{ employee: EmployeeDetail }>(`/employees/${id}`)
+      .then((r) => setEmp(r.employee))
       .catch(() => toast.error('Failed to load employee'))
       .finally(() => setLoading(false));
   }, [id]);
+
+  // Lazy-load tab data
+  React.useEffect(() => {
+    if (activeTab === 'documents' && docs.length === 0) {
+      apiFetch<DocRecord[]>(`/documents/${id}`)
+        .then((r) => setDocs(Array.isArray(r) ? r : []))
+        .catch(() => setDocs([]));
+    }
+    if (activeTab === 'leave' && leaves.length === 0) {
+      apiFetch<{ leaveRequests: LeaveRecord[] }>(`/leave/requests?employeeId=${id}`)
+        .then((r) => setLeaves(r.leaveRequests ?? []))
+        .catch(() => setLeaves([]));
+    }
+    if (activeTab === 'attendance' && attendance.length === 0) {
+      apiFetch<{ sessions: AttendanceRecord[] }>(`/attendance/${id}/sessions?limit=50`)
+        .then((r) => setAttendance(r.sessions ?? []))
+        .catch(() => setAttendance([]));
+    }
+  }, [activeTab, id, docs.length, leaves.length, attendance.length]);
 
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -254,16 +286,30 @@ export default function EmployeeDetailPage() {
     return 'warning' as const;
   };
 
+  const totalComp = Number(emp.compensation?.baseSalary ?? 0) + Number(emp.compensation?.allowances ?? 0);
+  const yearsAtCompany = Math.max(0, Math.round((Date.now() - new Date(emp.dateJoined).getTime()) / (365.25 * 86400000) * 10) / 10);
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => router.back()}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
+          <Avatar className="h-14 w-14 text-lg">
+            <AvatarFallback className="bg-primary/10 text-primary font-semibold">{initials(emp.fullName)}</AvatarFallback>
+          </Avatar>
           <div>
             <h1 className="text-2xl font-bold tracking-tight">{emp.fullName}</h1>
-            <p className="text-muted-foreground">{emp.jobTitle} &middot; {emp.department}</p>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span>{emp.jobTitle}</span>
+              <span>&middot;</span>
+              <span>{emp.department}</span>
+              <Badge variant={emp.probationStatus === 'CONFIRMED' ? 'success' : 'warning'} className="ml-1">
+                {emp.probationStatus === 'CONFIRMED' ? 'Confirmed' : 'Probation'}
+              </Badge>
+            </div>
           </div>
         </div>
         <Button onClick={() => setEditing(true)}>
@@ -271,46 +317,94 @@ export default function EmployeeDetailPage() {
         </Button>
       </div>
 
-      <Tabs defaultValue="overview" className="space-y-6">
+      {/* Quick Stats */}
+      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardContent className="pt-4 pb-3 text-center">
+            <p className="text-2xl font-bold">{fmtCurrency(totalComp)}</p>
+            <p className="text-xs text-muted-foreground">Monthly Package</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 pb-3 text-center">
+            <p className="text-2xl font-bold">{yearsAtCompany}</p>
+            <p className="text-xs text-muted-foreground">Years at Company</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 pb-3 text-center">
+            <p className="text-2xl font-bold">{emp.employmentType.replace(/_/g, ' ')}</p>
+            <p className="text-xs text-muted-foreground">Employment Type</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 pb-3 text-center">
+            <p className="text-2xl font-bold">{fmtDate(emp.dateJoined)}</p>
+            <p className="text-xs text-muted-foreground">Date Joined</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="documents">Documents</TabsTrigger>
-          <TabsTrigger value="salary">Salary History</TabsTrigger>
-          <TabsTrigger value="leave">Leave</TabsTrigger>
-          <TabsTrigger value="attendance">Attendance</TabsTrigger>
+          <TabsTrigger value="documents">
+            <FileText className="mr-1.5 h-3.5 w-3.5" />Documents
+          </TabsTrigger>
+          <TabsTrigger value="salary">
+            <TrendingUp className="mr-1.5 h-3.5 w-3.5" />Salary
+          </TabsTrigger>
+          <TabsTrigger value="leave">
+            <CalendarDays className="mr-1.5 h-3.5 w-3.5" />Leave
+          </TabsTrigger>
+          <TabsTrigger value="attendance">
+            <ClipboardList className="mr-1.5 h-3.5 w-3.5" />Attendance
+          </TabsTrigger>
         </TabsList>
 
         {/* ─── Overview Tab ─── */}
         <TabsContent value="overview">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             <Card>
-              <CardHeader className="pb-3"><CardTitle className="text-sm font-medium">Personal Info</CardTitle></CardHeader>
-              <CardContent className="space-y-0 divide-y divide-border">
-                <InfoRow label="Work Email" value={emp.workEmail} />
-                <InfoRow label="Personal Email" value={emp.personalEmail ?? '—'} />
-                <InfoRow label="Phone" value={emp.phone} />
-                <InfoRow label="Date of Birth" value={fmtDate(emp.dateOfBirth)} />
-                <InfoRow label="Nationality" value={emp.nationality} />
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <UserRound className="h-4 w-4" /> Personal Info
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-0">
+                <InfoRow icon={Mail} label="Work Email" value={emp.workEmail} />
+                <InfoRow icon={Mail} label="Personal Email" value={emp.personalEmail ?? '—'} />
+                <InfoRow icon={Phone} label="Phone" value={emp.phone} />
+                <InfoRow icon={Calendar} label="Date of Birth" value={fmtDate(emp.dateOfBirth)} />
+                <InfoRow icon={Globe} label="Nationality" value={emp.nationality} />
               </CardContent>
             </Card>
 
             <Card>
-              <CardHeader className="pb-3"><CardTitle className="text-sm font-medium">Employment</CardTitle></CardHeader>
-              <CardContent className="space-y-0 divide-y divide-border">
-                <InfoRow label="Type" value={emp.employmentType.replace(/_/g, ' ')} />
-                <InfoRow label="Date Joined" value={fmtDate(emp.dateJoined)} />
-                <InfoRow label="Probation">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Building2 className="h-4 w-4" /> Employment
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-0">
+                <InfoRow icon={BadgeCheck} label="Employment Type" value={emp.employmentType.replace(/_/g, ' ')} />
+                <InfoRow icon={Calendar} label="Date Joined" value={fmtDate(emp.dateJoined)} />
+                <InfoRow label="Probation Status">
                   <Badge variant={emp.probationStatus === 'CONFIRMED' ? 'success' : 'warning'}>
                     {emp.probationStatus === 'CONFIRMED' ? 'Confirmed' : 'On Probation'}
                   </Badge>
                 </InfoRow>
-                <InfoRow label="Probation End" value={fmtDate(emp.probationEndDate)} />
+                <InfoRow icon={Calendar} label="Probation End" value={fmtDate(emp.probationEndDate)} />
               </CardContent>
             </Card>
 
             <Card>
-              <CardHeader className="pb-3"><CardTitle className="text-sm font-medium">ID Documents</CardTitle></CardHeader>
-              <CardContent className="space-y-0 divide-y divide-border">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <CreditCard className="h-4 w-4" /> ID Documents
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-0">
                 <InfoRow label="Emirates ID" value={emp.emiratesIdNumber} />
                 <InfoRow label="EID Expiry" value={fmtDate(emp.emiratesIdExpiryDate)} />
                 <InfoRow label="Passport" value={emp.passportNumber} />
@@ -319,36 +413,50 @@ export default function EmployeeDetailPage() {
             </Card>
 
             <Card>
-              <CardHeader className="pb-3"><CardTitle className="text-sm font-medium">Compensation</CardTitle></CardHeader>
-              <CardContent className="space-y-0 divide-y divide-border">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Landmark className="h-4 w-4" /> Compensation
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-0">
                 <InfoRow label="Base Salary" value={fmtCurrency(emp.compensation?.baseSalary ?? 0)} />
                 <InfoRow label="Allowances" value={fmtCurrency(emp.compensation?.allowances ?? 0)} />
-                <InfoRow label="Total" value={fmtCurrency(Number(emp.compensation?.baseSalary ?? 0) + Number(emp.compensation?.allowances ?? 0))} />
+                <Separator />
+                <InfoRow label="Total Package" value={fmtCurrency(totalComp)} />
               </CardContent>
             </Card>
 
             <Card>
-              <CardHeader className="pb-3"><CardTitle className="text-sm font-medium">Bank Account</CardTitle></CardHeader>
-              <CardContent className="space-y-0 divide-y divide-border">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Landmark className="h-4 w-4" /> Bank Account
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-0">
                 <InfoRow label="Bank" value={emp.bankAccount?.bankName ?? '—'} />
                 <InfoRow label="Holder" value={emp.bankAccount?.accountHolderName ?? '—'} />
                 <InfoRow label="IBAN" value={emp.bankAccount?.iban ?? '—'} />
+                <InfoRow label="Account #" value={emp.bankAccount?.accountNumber ?? '—'} />
               </CardContent>
             </Card>
 
             <Card>
-              <CardHeader className="pb-3"><CardTitle className="text-sm font-medium">Emergency Contact</CardTitle></CardHeader>
-              <CardContent className="space-y-0 divide-y divide-border">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4" /> Emergency Contact
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-0">
                 <InfoRow label="Name" value={emp.emergencyContact?.name ?? '—'} />
                 <InfoRow label="Relation" value={emp.emergencyContact?.relation ?? '—'} />
-                <InfoRow label="Phone" value={emp.emergencyContact?.phone ?? '—'} />
+                <InfoRow icon={Phone} label="Phone" value={emp.emergencyContact?.phone ?? '—'} />
               </CardContent>
             </Card>
           </div>
 
           {emp.notes && (
             <Card className="mt-4">
-              <CardHeader className="pb-3"><CardTitle className="text-sm font-medium">HR Notes</CardTitle></CardHeader>
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">HR Notes</CardTitle></CardHeader>
               <CardContent><p className="whitespace-pre-line text-sm text-muted-foreground">{emp.notes}</p></CardContent>
             </Card>
           )}
@@ -358,8 +466,10 @@ export default function EmployeeDetailPage() {
         <TabsContent value="documents">
           {docs.length === 0 ? (
             <Card>
-              <CardContent className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                <p className="text-sm">No documents uploaded for this employee.</p>
+              <CardContent className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                <FileText className="mb-3 h-10 w-10 opacity-30" />
+                <p className="text-sm font-medium">No documents uploaded</p>
+                <p className="text-xs mt-1">Upload documents from the Documents page.</p>
               </CardContent>
             </Card>
           ) : (
@@ -369,33 +479,41 @@ export default function EmployeeDetailPage() {
                   <TableRow>
                     <TableHead>Document</TableHead>
                     <TableHead>Category</TableHead>
+                    <TableHead>Size</TableHead>
                     <TableHead>Expiry</TableHead>
                     <TableHead>Uploaded</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {docs.map((doc) => (
-                    <TableRow key={doc.id}>
-                      <TableCell className="font-medium">{doc.originalFileName ?? 'Untitled'}</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">{doc.category.replace(/_/g, ' ')}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        {doc.expiryDate ? (
-                          <span className={new Date(doc.expiryDate) < new Date(Date.now() + 30 * 86400000) ? 'text-destructive font-medium' : ''}>
-                            {fmtDate(doc.expiryDate)}
-                          </span>
-                        ) : '—'}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">{fmtDate(doc.createdAt)}</TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="sm" onClick={() => window.open(`${process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000/api/v1'}/documents/${doc.id}/download`, '_blank')}>
-                          <Download className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {docs.map((doc) => {
+                    const expiringSoon = doc.daysUntil != null && doc.daysUntil <= 30;
+                    return (
+                      <TableRow key={doc.id}>
+                        <TableCell className="font-medium">{doc.originalFileName ?? 'Untitled'}</TableCell>
+                        <TableCell>
+                          <Badge variant="secondary">{doc.category.replace(/_/g, ' ')}</Badge>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground text-xs">
+                          {(doc.sizeBytes / 1024).toFixed(0)} KB
+                        </TableCell>
+                        <TableCell>
+                          {doc.expiryDate ? (
+                            <span className={expiringSoon ? 'text-destructive font-medium' : ''}>
+                              {fmtDate(doc.expiryDate)}
+                              {expiringSoon && <span className="ml-1 text-xs">({doc.daysUntil}d)</span>}
+                            </span>
+                          ) : '—'}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">{fmtDate(doc.createdAt)}</TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="sm" onClick={() => window.open(`${process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000/api/v1'}/documents/${id}/${doc.id}/download`, '_blank')}>
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </Card>
@@ -406,39 +524,53 @@ export default function EmployeeDetailPage() {
         <TabsContent value="salary">
           {!emp.salaryHistory || emp.salaryHistory.length === 0 ? (
             <Card>
-              <CardContent className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                <p className="text-sm">No salary changes recorded.</p>
+              <CardContent className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                <TrendingUp className="mb-3 h-10 w-10 opacity-30" />
+                <p className="text-sm font-medium">No salary changes recorded</p>
+                <p className="text-xs mt-1">Salary changes will appear here when updated.</p>
               </CardContent>
             </Card>
           ) : (
             <div className="space-y-4">
-              {emp.salaryHistory.map((entry, i) => (
-                <Card key={entry.id}>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-sm font-medium">{fmtDate(entry.effectiveDate)}</CardTitle>
-                      <Badge variant={i === 0 ? 'default' : 'secondary'}>{i === 0 ? 'Current' : 'Previous'}</Badge>
-                    </div>
-                    <CardDescription>{entry.reason}</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div>
-                        <p className="text-xs text-muted-foreground">Base Salary</p>
-                        <p className="text-sm font-medium">
-                          {fmtCurrency(entry.oldBaseSalary)} &rarr; {fmtCurrency(entry.newBaseSalary)}
-                        </p>
+              {emp.salaryHistory.map((entry, i) => {
+                const change = Number(entry.newBaseSalary) - Number(entry.oldBaseSalary);
+                const pct = Number(entry.oldBaseSalary) > 0 ? ((change / Number(entry.oldBaseSalary)) * 100).toFixed(1) : '—';
+                return (
+                  <Card key={entry.id}>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <CardTitle className="text-sm font-medium">{fmtDate(entry.effectiveDate)}</CardTitle>
+                          {i === 0 && <Badge>Current</Badge>}
+                          {i > 0 && <Badge variant="secondary">Previous</Badge>}
+                        </div>
+                        {change !== 0 && (
+                          <Badge variant={change > 0 ? 'success' : 'destructive'}>
+                            {change > 0 ? '+' : ''}{pct}%
+                          </Badge>
+                        )}
                       </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Allowances</p>
-                        <p className="text-sm font-medium">
-                          {fmtCurrency(entry.oldAllowances)} &rarr; {fmtCurrency(entry.newAllowances)}
-                        </p>
+                      <CardDescription>{entry.reason}</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">Base Salary</p>
+                          <p className="text-sm font-medium">
+                            {fmtCurrency(entry.oldBaseSalary)} &rarr; {fmtCurrency(entry.newBaseSalary)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">Allowances</p>
+                          <p className="text-sm font-medium">
+                            {fmtCurrency(entry.oldAllowances)} &rarr; {fmtCurrency(entry.newAllowances)}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </TabsContent>
@@ -447,8 +579,10 @@ export default function EmployeeDetailPage() {
         <TabsContent value="leave">
           {leaves.length === 0 ? (
             <Card>
-              <CardContent className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                <p className="text-sm">No leave requests found.</p>
+              <CardContent className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                <CalendarDays className="mb-3 h-10 w-10 opacity-30" />
+                <p className="text-sm font-medium">No leave requests</p>
+                <p className="text-xs mt-1">Leave requests for this employee will appear here.</p>
               </CardContent>
             </Card>
           ) : (
@@ -483,8 +617,10 @@ export default function EmployeeDetailPage() {
         <TabsContent value="attendance">
           {attendance.length === 0 ? (
             <Card>
-              <CardContent className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                <p className="text-sm">No attendance records found.</p>
+              <CardContent className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                <ClipboardList className="mb-3 h-10 w-10 opacity-30" />
+                <p className="text-sm font-medium">No attendance records</p>
+                <p className="text-xs mt-1">Clock-in records will appear here.</p>
               </CardContent>
             </Card>
           ) : (
@@ -495,16 +631,20 @@ export default function EmployeeDetailPage() {
                     <TableHead>Date</TableHead>
                     <TableHead>Clock In</TableHead>
                     <TableHead>Clock Out</TableHead>
-                    <TableHead>Late</TableHead>
+                    <TableHead>Lunch</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead>Comment</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {attendance.slice(0, 30).map((ws) => (
+                  {attendance.map((ws) => (
                     <TableRow key={ws.id}>
                       <TableCell className="font-medium">{fmtDate(ws.clockInAt)}</TableCell>
                       <TableCell>{new Date(ws.clockInAt).toLocaleTimeString('en-AE', { hour: '2-digit', minute: '2-digit' })}</TableCell>
                       <TableCell>{ws.clockOutAt ? new Date(ws.clockOutAt).toLocaleTimeString('en-AE', { hour: '2-digit', minute: '2-digit' }) : '—'}</TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {ws.lunches?.reduce((s, l) => s + l.durationMinutes, 0) ?? 0} min
+                      </TableCell>
                       <TableCell>
                         {ws.late ? (
                           <Badge variant="destructive">{ws.lateByMinutes}m late</Badge>

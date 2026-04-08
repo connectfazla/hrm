@@ -1,0 +1,500 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  EMPLOYEE
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+}
+
+enum ProbationStatus {
+  ON_PROBATION
+  CONFIRMED
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum LeaveAccrualEventKind {
+  ACCRUAL
+  CARRYOVER
+  RESET
+  ADJUSTMENT
+}
+
+enum LeaveType {
+  ANNUAL
+  EMERGENCY_UNPAID
+  SICK
+  MATERNITY
+  PATERNITY
+  STUDY
+  BEREAVEMENT_IMMEDIATE
+  BEREAVEMENT_EXTENDED
+  HAJJ
+}
+
+enum DocumentCategory {
+  EMPLOYMENT_CONTRACT
+  EMIRATES_ID
+  PASSPORT
+  VISA
+  PROFESSIONAL_CERTIFICATE
+  CV_RESUME
+  PROFILE_PHOTO
+  BANK_DETAILS_LETTER
+  OTHER
+}
+
+enum NotificationType {
+  LEAVE_DECISION
+  LEAVE_APPROVAL_PENDING
+  DOCUMENT_EXPIRY_WARNING
+  SALARY_CHANGED
+  MESSAGE
+}
+
+enum PayrollDeductionKind {
+  UNPAID_LEAVE
+  PROBATION_LEAVE
+  OTHER
+}
+
+model User {
+  id             String   @id @default(uuid()) @db.Uuid
+  email          String   @unique
+  passwordHash  String
+  role           Role     @default(EMPLOYEE)
+
+  employeeId     String? @unique @db.Uuid
+  employee       Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+
+  refreshTokens  RefreshToken[]
+  passwordResetTokens PasswordResetToken[]
+  apiKeys        ApiKey[] @relation("UserApiKeys")
+  notifications  Notification[]
+
+  salaryHistoryChanges SalaryHistory[] @relation("SalaryHistoryChangedBy")
+  leaveDecisions LeaveRequest[] @relation("LeaveRequestDecidedBy")
+  payrollRunsGenerated PayrollRun[] @relation("PayrollRunGeneratedBy")
+  documentsUploaded Document[] @relation("DocumentUploadedBy")
+  auditLogs AuditLog[] @relation("AuditLogActor")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model RefreshToken {
+  id String @id @default(uuid()) @db.Uuid
+
+  userId     String   @db.Uuid
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  tokenHash  String
+  expiresAt  DateTime
+  lastActivityAt DateTime
+  revokedAt  DateTime?
+
+  createdAt DateTime @default(now())
+}
+
+model PasswordResetToken {
+  id String @id @default(uuid()) @db.Uuid
+
+  userId     String   @db.Uuid
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  tokenHash  String
+  expiresAt  DateTime
+  usedAt     DateTime?
+
+  createdAt DateTime @default(now())
+}
+
+model ApiKey {
+  id String @id @default(uuid()) @db.Uuid
+
+  keyHash String
+  name    String
+  scopes  String[]
+
+  createdByUserId String? @db.Uuid
+  createdByUser   User?    @relation("UserApiKeys", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+
+  createdAt DateTime @default(now())
+}
+
+model Employee {
+  id String @id @default(uuid()) @db.Uuid
+
+  fullName   String
+  jobTitle   String
+  department String
+
+  dateOfBirth DateTime
+  nationality  String
+
+  personalEmail String?
+  workEmail     String? @unique
+  phone         String
+
+  emiratesIdNumber String
+  emiratesIdExpiryDate DateTime
+  passportNumber String
+  passportExpiryDate DateTime
+
+  dateJoined DateTime
+  employmentType EmploymentType
+  probationStatus ProbationStatus
+  probationEndDate DateTime
+
+  notes String?
+
+  compensation EmployeeCompensation?
+  salaryHistory SalaryHistory[]
+
+  bankAccount BankAccount?
+  emergencyContact EmergencyContact?
+
+  workSessions WorkSession[]
+  leaveRequests LeaveRequest[]
+  leaveAccrualEvents LeaveAccrualEvent[]
+
+  leaveBalanceSnapshots LeaveBalanceSnapshot[]
+
+  payslips Payslip[]
+
+  documents Document[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User?
+
+  @@index([department])
+  @@index([workEmail])
+}
+
+model EmployeeCompensation {
+  id String @id @default(uuid()) @db.Uuid
+  employeeId String @unique @db.Uuid
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  baseSalary Decimal @db.Decimal(12,2)
+  allowances Decimal @db.Decimal(12,2)
+
+  effectiveDate DateTime @default(now())
+}
+
+model SalaryHistory {
+  id String @id @default(uuid()) @db.Uuid
+  employeeId String @db.Uuid
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  effectiveDate DateTime
+
+  oldBaseSalary Decimal @db.Decimal(12,2)
+  newBaseSalary Decimal @db.Decimal(12,2)
+  oldAllowances Decimal @db.Decimal(12,2)
+  newAllowances Decimal @db.Decimal(12,2)
+
+  reason String
+  changedByUserId String? @db.Uuid
+  changedByUser User? @relation("SalaryHistoryChangedBy", fields: [changedByUserId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([employeeId, effectiveDate])
+}
+
+model BankAccount {
+  id String @id @default(uuid()) @db.Uuid
+  employeeId String @unique @db.Uuid
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  bankName String
+  accountHolderName String
+  iban String?
+  accountNumber String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model EmergencyContact {
+  id String @id @default(uuid()) @db.Uuid
+  employeeId String @unique @db.Uuid
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  name String
+  relation String
+  phone String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AttendanceConfig {
+  id String @id @default(uuid()) @db.Uuid
+  workdayStartTime DateTime @db.Time(0)
+  lateGraceMinutes Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model WorkSession {
+  id String @id @default(uuid()) @db.Uuid
+  employeeId String @db.Uuid
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  clockInAt DateTime
+  clockOutAt DateTime?
+
+  late Boolean @default(false)
+  lateByMinutes Int @default(0)
+
+  workComment String?
+
+  lunches LunchBreak[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([employeeId, clockInAt])
+}
+
+model LunchBreak {
+  id String @id @default(uuid()) @db.Uuid
+  workSessionId String @db.Uuid
+  workSession WorkSession @relation(fields: [workSessionId], references: [id], onDelete: Cascade)
+
+  startAt DateTime
+  endAt DateTime?
+  durationMinutes Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model LeaveRequest {
+  id String @id @default(uuid()) @db.Uuid
+
+  employeeId String @db.Uuid
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  type LeaveType
+  startDate DateTime @db.Date
+  endDate DateTime @db.Date
+  reason String
+
+  status LeaveStatus @default(PENDING)
+  adminComment String?
+  decidedByUserId String? @db.Uuid
+  decidedByUser User? @relation("LeaveRequestDecidedBy", onDelete: SetNull, fields: [decidedByUserId], references: [id])
+  decidedAt DateTime?
+
+  deductions LeaveDeduction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([employeeId, startDate])
+}
+
+model LeaveBalanceSnapshot {
+  id String @id @default(uuid()) @db.Uuid
+
+  employeeId String @db.Uuid
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  asOfDate DateTime @db.Date
+
+  paidAccruedDays Int @default(0)
+  paidAnnualDays Int @default(0)
+  carryOverDays Int @default(0)
+  paidUsedDays Int @default(0)
+
+  emergencyUnpaidRemainingDays Int @default(30)
+  unpaidUsedDays Int @default(0)
+
+  // Bucketed usage by leave type (sick/maternity/etc.) for later calculation & payroll integration.
+  breakdown Json?
+
+  createdAt DateTime @default(now())
+
+  @@unique([employeeId, asOfDate])
+}
+
+model LeaveAccrualEvent {
+  id String @id @default(uuid()) @db.Uuid
+
+  employeeId String @db.Uuid
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  eventDate DateTime @db.Date
+  kind LeaveAccrualEventKind
+  amount Int
+  reason String?
+
+  createdAt DateTime @default(now())
+
+  @@index([employeeId, eventDate])
+}
+
+model LeaveDeduction {
+  id String @id @default(uuid()) @db.Uuid
+
+  leaveRequestId String @db.Uuid
+  leaveRequest LeaveRequest @relation(fields: [leaveRequestId], references: [id], onDelete: Cascade)
+
+  payrollMonth DateTime @db.Date
+
+  deductionAmount Decimal @db.Decimal(12,2)
+  rateApplied Decimal @db.Decimal(12,2)
+
+  details Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([payrollMonth])
+}
+
+model PayrollRun {
+  id String @id @default(uuid()) @db.Uuid
+
+  month DateTime @db.Date
+  status String @default("DRAFT")
+
+  generatedAt DateTime @default(now())
+  generatedByUserId String? @db.Uuid
+  generatedByUser User? @relation("PayrollRunGeneratedBy", fields: [generatedByUserId], references: [id], onDelete: SetNull)
+
+  payslips Payslip[]
+
+  @@unique([month, generatedByUserId])
+}
+
+model Payslip {
+  id String @id @default(uuid()) @db.Uuid
+
+  employeeId String @db.Uuid
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  month DateTime @db.Date
+
+  baseSalary Decimal @db.Decimal(12,2)
+  allowances Decimal @db.Decimal(12,2)
+  deductionsTotal Decimal @db.Decimal(12,2)
+  netPay Decimal @db.Decimal(12,2)
+  dailyRate Decimal @db.Decimal(12,2)
+
+  lineItems Json?
+
+  payrollRunId String? @db.Uuid
+  payrollRun PayrollRun? @relation(fields: [payrollRunId], references: [id], onDelete: SetNull)
+
+  generatedAt DateTime @default(now())
+
+  deductionLines PayrollDeductionLine[]
+
+  @@unique([employeeId, month])
+}
+
+model PayrollDeductionLine {
+  id String @id @default(uuid()) @db.Uuid
+
+  payslipId String @db.Uuid
+  payslip Payslip @relation(fields: [payslipId], references: [id], onDelete: Cascade)
+
+  kind PayrollDeductionKind
+  amount Decimal @db.Decimal(12,2)
+
+  referenceId String? @db.Uuid
+  referenceType String?
+
+  details Json?
+
+  createdAt DateTime @default(now())
+}
+
+model Document {
+  id String @id @default(uuid()) @db.Uuid
+
+  employeeId String @db.Uuid
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  category DocumentCategory
+
+  originalFileName String?
+  mimeType String
+  sizeBytes Int
+
+  encrypted Boolean @default(true)
+  storagePath String
+  checksum String?
+
+  expiryDate DateTime? @db.Date
+
+  uploadedByUserId String? @db.Uuid
+  uploadedByUser User? @relation("DocumentUploadedBy", fields: [uploadedByUserId], references: [id], onDelete: SetNull)
+
+  deletedAt DateTime?
+
+  createdAt DateTime @default(now())
+}
+
+model Notification {
+  id String @id @default(uuid()) @db.Uuid
+
+  userId String @db.Uuid
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type NotificationType
+  title String
+  body String
+
+  readAt DateTime?
+  metadata Json?
+
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id String @id @default(uuid()) @db.Uuid
+
+  actorUserId String? @db.Uuid
+  actorUser User? @relation("AuditLogActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  action String
+  entityType String
+  entityId String?
+
+  before Json?
+  after Json?
+
+  ip String?
+  userAgent String?
+
+  createdAt DateTime @default(now())
+
+  @@index([entityType, entityId])
+}
+

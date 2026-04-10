@@ -9,7 +9,7 @@ import { SettingsService } from "./settings.service";
 const ALLOWED_KEYS = ["company", "smtp", "emailTemplates", "branding"] as const;
 
 const updateSettingSchema = z.object({
-  value: z.record(z.unknown()),
+  value: z.record(z.string(), z.unknown()),
 });
 
 const testSmtpSchema = z.object({

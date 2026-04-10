@@ -1,4 +1,4 @@
-import { Injectable, ServiceUnavailableException, UnauthorizedException } from "@nestjs/common";
+import { ForbiddenException, Injectable, ServiceUnavailableException, UnauthorizedException } from "@nestjs/common";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
@@ -8,7 +8,14 @@ import { PrismaService } from "../prisma/prisma.service";
 type LoginResult = {
   accessToken: string;
   refreshToken: string;
-  user: { userId: string; role: string; employeeId?: string | null; email: string; fullName: string | null };
+  user: {
+    userId: string;
+    role: string;
+    employeeId?: string | null;
+    email: string;
+    fullName: string | null;
+    profilePhotoDocumentId?: string | null;
+  };
 };
 
 function sha256Hex(input: string) {
@@ -36,6 +43,14 @@ export class AuthService {
     const sixMonthsLater = new Date(now.getTime() + 180 * 24 * 60 * 60 * 1000);
 
     try {
+      const allowPublicRegister = (process.env.ALLOW_PUBLIC_REGISTER ?? "").toLowerCase() === "true";
+      if (!allowPublicRegister) {
+        const userCount = await this.prisma.user.count();
+        if (userCount > 0) {
+          throw new ForbiddenException("Registration is disabled. Ask an admin to create your account.");
+        }
+      }
+
       const existing = await this.prisma.user.findUnique({ where: { email } });
       if (existing) throw new UnauthorizedException("Email already registered");
 
@@ -83,7 +98,7 @@ export class AuthService {
         user: { userId: user.id, role: user.role, employeeId: user.employeeId, email: user.email, fullName },
       };
     } catch (e) {
-      if (e instanceof UnauthorizedException) throw e;
+      if (e instanceof UnauthorizedException || e instanceof ForbiddenException) throw e;
       throw this.mapDbError(e);
     }
   }
@@ -93,7 +108,17 @@ export class AuthService {
     try {
       user = await this.prisma.user.findUnique({
         where: { email },
-        include: { employee: true },
+        include: {
+          employee: {
+            include: {
+              documents: {
+                where: { category: "PROFILE_PHOTO", deletedAt: null },
+                orderBy: { createdAt: "desc" },
+                take: 1,
+              },
+            },
+          },
+        },
       });
     } catch (e) {
       throw this.mapDbError(e);
@@ -139,6 +164,7 @@ export class AuthService {
         employeeId: user.employeeId,
         email: user.email,
         fullName: user.employee?.fullName ?? null,
+        profilePhotoDocumentId: user.employee?.documents?.[0]?.id ?? null,
       },
     };
   }
@@ -151,7 +177,21 @@ export class AuthService {
     try {
       stored = await this.prisma.refreshToken.findFirst({
         where: { tokenHash: refreshTokenHash, revokedAt: null },
-        include: { user: { include: { employee: true } } },
+        include: {
+          user: {
+            include: {
+              employee: {
+                include: {
+                  documents: {
+                    where: { category: "PROFILE_PHOTO", deletedAt: null },
+                    orderBy: { createdAt: "desc" },
+                    take: 1,
+                  },
+                },
+              },
+            },
+          },
+        },
       });
     } catch (e) {
       throw this.mapDbError(e);
@@ -207,7 +247,14 @@ export class AuthService {
       return {
         accessToken: this.signAccessToken(user),
         refreshToken: newRefreshToken,
-        user: { userId: user.id, role: user.role, employeeId: user.employeeId, email: user.email, fullName: user.employee?.fullName ?? null },
+        user: {
+          userId: user.id,
+          role: user.role,
+          employeeId: user.employeeId,
+          email: user.email,
+          fullName: user.employee?.fullName ?? null,
+          profilePhotoDocumentId: user.employee?.documents?.[0]?.id ?? null,
+        },
       };
     } catch (e) {
       throw this.mapDbError(e);
@@ -324,6 +371,12 @@ export class AuthService {
             dateJoined: true, employmentType: true,
             probationStatus: true, probationEndDate: true,
             emergencyContact: { select: { name: true, relation: true, phone: true } },
+            documents: {
+              where: { category: "PROFILE_PHOTO", deletedAt: null },
+              orderBy: { createdAt: "desc" },
+              take: 1,
+              select: { id: true },
+            },
           },
         },
       },
@@ -335,6 +388,7 @@ export class AuthService {
       role: user.role,
       employeeId: user.employeeId,
       fullName: user.employee?.fullName ?? null,
+      profilePhotoDocumentId: user.employee?.documents?.[0]?.id ?? null,
       employee: user.employee,
     };
   }

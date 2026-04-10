@@ -37,6 +37,7 @@ import {
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
 
 type NavItem = { href: string; label: string; icon: React.ReactNode };
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000/api/v1';
 
 function NavLink({ item, collapsed }: { item: NavItem; collapsed?: boolean }) {
   const pathname = usePathname();
@@ -92,6 +93,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { state, logout } = useAuth();
   const [collapsed, setCollapsed] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const [companyBranding, setCompanyBranding] = React.useState<{ companyName: string; companyLogo: string | null }>({
+    companyName: 'Uppearance',
+    companyLogo: null,
+  });
 
   const pathname = usePathname();
 
@@ -107,12 +112,29 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   }, [state, pathname, router]);
 
+  React.useEffect(() => {
+    fetch(`${API_BASE}/settings/branding`, { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!data) return;
+        setCompanyBranding({
+          companyName: typeof data.companyName === 'string' && data.companyName.trim() ? data.companyName : 'Uppearance',
+          companyLogo: typeof data.companyLogo === 'string' ? data.companyLogo : null,
+        });
+      })
+      .catch(() => undefined);
+  }, []);
+
   if (state.status === 'loading') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3 animate-fade-up">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-md shadow-primary/20">
-            <span className="text-sm font-bold text-primary-foreground">U</span>
+          <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-primary shadow-md shadow-primary/20">
+            {companyBranding.companyLogo ? (
+              <img src={companyBranding.companyLogo} alt="Company logo" className="h-full w-full object-cover" />
+            ) : (
+              <span className="text-sm font-bold text-primary-foreground">U</span>
+            )}
           </div>
           <div className="h-1.5 w-24 overflow-hidden rounded-full bg-primary/10">
             <div className="h-full w-1/2 animate-shimmer rounded-full bg-primary/40" />
@@ -136,14 +158,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const initials = state.user.fullName
     ? state.user.fullName.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
     : (state.user.email ?? 'U').slice(0, 2).toUpperCase();
+  const profilePhotoUrl =
+    state.user.employeeId && state.user.profilePhotoDocumentId
+      ? `${API_BASE}/documents/${state.user.employeeId}/${state.user.profilePhotoDocumentId}/download`
+      : null;
 
   const sidebarContent = (
     <>
       <div className={cn('flex items-center gap-2.5 px-3 py-3', collapsed && 'justify-center px-2')}>
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary shadow-sm">
-          <span className="text-sm font-bold text-primary-foreground">U</span>
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary shadow-sm">
+          {companyBranding.companyLogo ? (
+            <img src={companyBranding.companyLogo} alt="Company logo" className="h-full w-full object-cover" />
+          ) : (
+            <span className="text-sm font-bold text-primary-foreground">U</span>
+          )}
         </div>
-        {!collapsed && <span className="font-semibold tracking-tight">Uppearance</span>}
+        {!collapsed && <span className="font-semibold tracking-tight">{companyBranding.companyName || 'Uppearance'}</span>}
       </div>
       <Separator className="my-2" />
       <nav className="flex-1 space-y-1 px-2">
@@ -160,7 +190,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               collapsed && 'justify-center px-2'
             )}>
               <Avatar className="h-7 w-7">
-                <AvatarFallback className="text-xs font-semibold">{initials}</AvatarFallback>
+                {profilePhotoUrl ? (
+                  <img src={profilePhotoUrl} alt={displayName} className="h-full w-full object-cover" />
+                ) : (
+                  <AvatarFallback className="text-xs font-semibold">{initials}</AvatarFallback>
+                )}
               </Avatar>
               {!collapsed && (
                 <div className="flex-1 text-left">
@@ -259,7 +293,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm" className="gap-2">
                     <Avatar className="h-6 w-6">
-                      <AvatarFallback className="text-[10px] font-semibold">{initials}</AvatarFallback>
+                      {profilePhotoUrl ? (
+                        <img src={profilePhotoUrl} alt={displayName} className="h-full w-full object-cover" />
+                      ) : (
+                        <AvatarFallback className="text-[10px] font-semibold">{initials}</AvatarFallback>
+                      )}
                     </Avatar>
                     <span className="text-sm">{displayName}</span>
                   </Button>

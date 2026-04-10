@@ -36,9 +36,14 @@ export class NotificationsService {
     startDate: string;
     endDate: string;
   }) {
+    const employee = await this.prisma.employee.findUnique({
+      where: { id: args.employeeId },
+      select: { fullName: true, workEmail: true },
+    });
+
     const admins = await this.prisma.user.findMany({
       where: { role: Role.ADMIN },
-      select: { id: true },
+      select: { id: true, email: true },
     });
 
     const notifications = admins.map((a) =>
@@ -47,7 +52,7 @@ export class NotificationsService {
           userId: a.id,
           type: NotificationType.LEAVE_APPROVAL_PENDING,
           title: "Leave request awaiting approval",
-          body: `Employee ${args.employeeId} requested ${args.type} (${args.startDate} - ${args.endDate}).`,
+          body: `Employee ${employee?.fullName ?? args.employeeId} requested ${args.type} (${args.startDate} - ${args.endDate}).`,
           metadata: {
             employeeId: args.employeeId,
             leaveRequestId: args.leaveRequestId,
@@ -57,6 +62,19 @@ export class NotificationsService {
     );
 
     await Promise.all(notifications);
+
+    const subject = "Uppearance HRMS - Leave request pending approval";
+    const text =
+      `Employee: ${employee?.fullName ?? args.employeeId}\n` +
+      `Leave type: ${args.type}\n` +
+      `Dates: ${args.startDate} to ${args.endDate}\n` +
+      `Request ID: ${args.leaveRequestId}\n`;
+
+    await Promise.all(
+      admins
+        .filter((a) => Boolean(a.email))
+        .map((a) => this.email(a.email!, subject, text).catch(() => undefined)),
+    );
   }
 
   async notifyEmployeeDecision(args: {

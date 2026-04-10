@@ -53,6 +53,19 @@ export class AttendanceService {
 
     if (active) throw new BadRequestException("Already clocked in");
 
+    const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0));
+    const dayEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
+    const existingToday = await this.prisma.workSession.findFirst({
+      where: {
+        employeeId,
+        clockInAt: { gte: dayStart, lte: dayEnd },
+      },
+      select: { id: true },
+    });
+    if (existingToday) {
+      throw new BadRequestException("You can only log attendance once per day");
+    }
+
     const cfg = await this.getAttendanceConfig();
     const lateCalc = calcLate(now, { workdayStartTime: cfg.workdayStartTime as Date, lateGraceMinutes: cfg.lateGraceMinutes });
 
@@ -66,6 +79,47 @@ export class AttendanceService {
     });
 
     return session;
+  }
+
+  async updateSessionAdmin(sessionId: string, data: { clockInAt: Date; clockOutAt: Date | null; workComment?: string | null }) {
+    const existing = await this.prisma.workSession.findUnique({
+      where: { id: sessionId },
+      include: { lunches: true },
+    });
+    if (!existing) throw new NotFoundException("Work session not found");
+
+    if (data.clockOutAt && data.clockOutAt < data.clockInAt) {
+      throw new BadRequestException("Clock out time cannot be before clock in time");
+    }
+
+    const cfg = await this.getAttendanceConfig();
+    const lateCalc = calcLate(data.clockInAt, {
+      workdayStartTime: cfg.workdayStartTime as Date,
+      lateGraceMinutes: cfg.lateGraceMinutes,
+    });
+
+    const totalLunchMinutes = existing.lunches
+      .filter((l) => l.endAt != null)
+      .reduce((sum, l) => sum + (l.durationMinutes ?? 0), 0);
+
+    if (data.clockOutAt) {
+      const worked = Math.max(0, diffMinutes(data.clockInAt, data.clockOutAt));
+      if (totalLunchMinutes > worked) {
+        throw new BadRequestException("Lunch duration exceeds total worked duration");
+      }
+    }
+
+    return this.prisma.workSession.update({
+      where: { id: sessionId },
+      data: {
+        clockInAt: data.clockInAt,
+        clockOutAt: data.clockOutAt,
+        workComment: data.workComment ?? null,
+        late: lateCalc.late,
+        lateByMinutes: lateCalc.lateByMinutes,
+      },
+      include: { lunches: true },
+    });
   }
 
   async clockOut(employeeId: string, comment: string, now: Date) {

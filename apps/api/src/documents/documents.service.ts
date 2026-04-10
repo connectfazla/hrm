@@ -14,6 +14,12 @@ type UploadArgs = {
   uploadedByUserId: string;
 };
 
+type SelfProfilePhotoArgs = {
+  employeeId: string;
+  file: Express.Multer.File;
+  uploadedByUserId: string;
+};
+
 type DownloadResult = {
   buffer: Buffer;
   mimeType: string;
@@ -109,6 +115,44 @@ export class DocumentsService {
         uploadedByUserId: args.uploadedByUserId,
       },
     });
+
+    return doc;
+  }
+
+  async uploadProfilePhotoSelf(args: SelfProfilePhotoArgs) {
+    const existing = await this.prisma.document.findMany({
+      where: {
+        employeeId: args.employeeId,
+        category: DocumentCategory.PROFILE_PHOTO,
+        deletedAt: null,
+      },
+      select: { id: true, storagePath: true },
+    });
+
+    const doc = await this.upload({
+      employeeId: args.employeeId,
+      category: DocumentCategory.PROFILE_PHOTO,
+      expiryDate: null,
+      file: args.file,
+      uploadedByUserId: args.uploadedByUserId,
+    });
+
+    if (existing.length > 0) {
+      await this.prisma.document.updateMany({
+        where: { id: { in: existing.map((d) => d.id) } },
+        data: { deletedAt: new Date() },
+      });
+      await Promise.all(
+        existing.map(async (d) => {
+          try {
+            this.validateStoragePath(d.storagePath);
+            await fs.unlink(path.join(this.storageRoot, d.storagePath));
+          } catch {
+            // Ignore missing old files
+          }
+        }),
+      );
+    }
 
     return doc;
   }

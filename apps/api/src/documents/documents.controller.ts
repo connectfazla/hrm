@@ -87,6 +87,35 @@ export class DocumentsController {
   }
 
   @UseGuards(AccessTokenGuard)
+  @Post("profile-photo")
+  @UseInterceptors(
+    FileInterceptor("file", {
+      storage: memoryStorage(),
+      limits: { fileSize: 5 * 1024 * 1024 },
+    }),
+  )
+  async uploadSelfProfilePhoto(
+    @Req() req: RequestWithUser,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    if (!file) {
+      return { message: "Missing file" };
+    }
+    const employeeId = req.user?.employeeId ?? null;
+    const actorUserId = req.user?.userId ?? null;
+    if (!employeeId || !actorUserId) {
+      return { message: "Unauthorized" };
+    }
+
+    const doc = await this.docs.uploadProfilePhotoSelf({
+      employeeId,
+      file,
+      uploadedByUserId: actorUserId,
+    });
+    return { document: doc };
+  }
+
+  @UseGuards(AccessTokenGuard)
   @Get(":employeeId")
   async list(@Req() req: RequestWithUser, @Param("employeeId") employeeId: string) {
     const role = req.user!.role;

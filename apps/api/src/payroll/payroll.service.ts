@@ -20,6 +20,17 @@ function toCsvValue(v: any) {
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
+function parseDataUrlImage(dataUrl: string | null): Buffer | null {
+  if (!dataUrl || typeof dataUrl !== "string") return null;
+  const match = dataUrl.match(/^data:image\/[a-zA-Z0-9.+-]+;base64,(.+)$/);
+  if (!match) return null;
+  try {
+    return Buffer.from(match[1], "base64");
+  } catch {
+    return null;
+  }
+}
+
 @Injectable()
 export class PayrollService {
   constructor(private readonly prisma: PrismaService) {}
@@ -244,32 +255,128 @@ export class PayrollService {
   }
 
   async renderPayslipPdf(payslipId: string) {
-    // Minimal PDF generation: plain text summary.
     const payslip = await this.prisma.payslip.findUnique({
       where: { id: payslipId },
       include: { employee: true, deductionLines: true },
     });
     if (!payslip) throw new NotFoundException("Payslip not found");
 
+    const [companyNameSetting, companyLogoSetting] = await Promise.all([
+      this.prisma.siteSettings.findUnique({ where: { key: "company_name" }, select: { value: true } }),
+      this.prisma.siteSettings.findUnique({ where: { key: "company_logo" }, select: { value: true } }),
+    ]);
+    const companyName =
+      typeof companyNameSetting?.value === "string" ? companyNameSetting.value : "Uppearance HRMS";
+    const logoBuffer = parseDataUrlImage(
+      typeof companyLogoSetting?.value === "string" ? companyLogoSetting.value : null,
+    );
+
     const doc = new PDFDocument({ size: "A4", margin: 30 });
     const chunks: Buffer[] = [];
     doc.on("data", (chunk: Buffer) => chunks.push(chunk));
 
-    doc.fontSize(16).text("Uppearance HRMS - Payslip", { align: "center" });
-    doc.moveDown();
-    doc.fontSize(11).text(`Employee: ${payslip.employee.fullName}`);
-    doc.text(`Month: ${payslip.month.toISOString().slice(0, 7)}`);
-    doc.moveDown();
-    doc.text(`Base Salary: AED ${Number(payslip.baseSalary).toFixed(2)}`);
-    doc.text(`Allowances: AED ${Number(payslip.allowances).toFixed(2)}`);
-    doc.text(`Deductions: AED ${Number(payslip.deductionsTotal).toFixed(2)}`);
-    doc.fontSize(12).text(`Net Pay: AED ${Number(payslip.netPay).toFixed(2)}`);
-    doc.moveDown();
+    const monthLabel = payslip.month.toISOString().slice(0, 7);
+    const gross = Number(payslip.baseSalary) + Number(payslip.allowances);
 
-    doc.fontSize(10).text("Deduction lines:");
-    for (const line of payslip.deductionLines) {
-      doc.text(`- ${line.kind}: AED ${Number(line.amount).toFixed(2)}`);
+    if (logoBuffer) {
+      try {
+        doc.image(logoBuffer, 30, 28, { fit: [56, 56], valign: "center" });
+      } catch {
+        // Ignore invalid logo payload and keep rendering.
+      }
     }
+
+    doc.fontSize(18).font("Helvetica-Bold").text(companyName, 95, 32);
+    doc.fontSize(10).font("Helvetica").fillColor("#6b7280").text("Official Payslip", 95, 56);
+    doc.fillColor("#111827");
+
+    doc.roundedRect(30, 92, 535, 1, 0).fill("#e5e7eb");
+    doc.fillColor("#111827");
+
+    doc.fontSize(10).font("Helvetica-Bold");
+    doc.text("Employee", 30, 108);
+    doc.font("Helvetica").text(payslip.employee.fullName, 30, 124);
+    doc.font("Helvetica-Bold").text("Month", 300, 108);
+    doc.font("Helvetica").text(monthLabel, 300, 124);
+    doc.font("Helvetica-Bold").text("Generated", 430, 108);
+    doc.font("Helvetica").text(new Date(payslip.generatedAt).toLocaleDateString("en-AE"), 430, 124);
+
+    doc.roundedRect(30, 160, 535, 1, 0).fill("#e5e7eb");
+    doc.fillColor("#111827");
+
+    const summaryTop = 176;
+    const colW = 125;
+    const gap = 10;
+    const cards = [
+      { label: "Base Salary", value: Number(payslip.baseSalary) },
+      { label: "Allowances", value: Number(payslip.allowances) },
+      { label: "Deductions", value: Number(payslip.deductionsTotal) },
+      { label: "Net Pay", value: Number(payslip.netPay) },
+    ];
+    cards.forEach((c, i) => {
+      const x = 30 + i * (colW + gap);
+      doc.roundedRect(x, summaryTop, colW, 66, 8).fill(i === 3 ? "#eff6ff" : "#f9fafb");
+      doc.fillColor("#6b7280").font("Helvetica").fontSize(9).text(c.label, x + 10, summaryTop + 10);
+      doc.fillColor(i === 3 ? "#1d4ed8" : "#111827").font("Helvetica-Bold").fontSize(12).text(
+        `AED ${c.value.toFixed(2)}`,
+        x + 10,
+        summaryTop + 30,
+      );
+    });
+    doc.fillColor("#111827");
+
+    const tableTop = 268;
+    doc.font("Helvetica-Bold").fontSize(11).text("Deductions & Adjustments", 30, tableTop);
+    doc.fontSize(9).fillColor("#6b7280").text("Line item", 30, tableTop + 20);
+    doc.text("Type", 360, tableTop + 20);
+    doc.text("Amount (AED)", 455, tableTop + 20, { width: 110, align: "right" });
+    doc.fillColor("#111827");
+    doc.roundedRect(30, tableTop + 34, 535, 1, 0).fill("#e5e7eb");
+    doc.fillColor("#111827");
+
+    let y = tableTop + 44;
+    if (payslip.deductionLines.length === 0) {
+      doc.font("Helvetica").fontSize(10).fillColor("#6b7280").text("No deductions or manual adjustments.", 30, y);
+      y += 24;
+    } else {
+      for (const line of payslip.deductionLines) {
+        const details = (line.details ?? {}) as Record<string, unknown>;
+        const description =
+          typeof details.description === "string"
+            ? details.description
+            : typeof details.leaveRequestType === "string"
+              ? `${details.leaveRequestType} leave`
+              : "Payroll line item";
+        const isAddition = details.isAddition === true || Number(line.amount) < 0;
+        const amount = Number(line.amount);
+        const displayAmount = isAddition ? Math.abs(amount) : amount;
+        doc.font("Helvetica").fontSize(10).fillColor("#111827").text(description, 30, y, { width: 320 });
+        doc.fontSize(9).fillColor("#6b7280").text(isAddition ? "Addition" : "Deduction", 360, y + 2);
+        doc
+          .font("Helvetica-Bold")
+          .fontSize(10)
+          .fillColor(isAddition ? "#047857" : "#b91c1c")
+          .text(
+            `${isAddition ? "+" : "-"} ${displayAmount.toFixed(2)}`,
+            455,
+            y,
+            { width: 110, align: "right" },
+          );
+        doc.fillColor("#111827");
+        y += 22;
+      }
+    }
+
+    doc.roundedRect(30, Math.max(y + 10, 710), 535, 1, 0).fill("#e5e7eb");
+    doc
+      .fillColor("#6b7280")
+      .font("Helvetica")
+      .fontSize(8)
+      .text(
+        `Gross: AED ${gross.toFixed(2)}    |    Net: AED ${Number(payslip.netPay).toFixed(2)}    |    Generated by Uppearance HRMS`,
+        30,
+        Math.max(y + 20, 720),
+      );
 
     doc.end();
 

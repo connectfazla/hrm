@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, Req, Res, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, Put, Query, Req, Res, UseGuards } from "@nestjs/common";
 import { z } from "zod";
 import type { Response, Request } from "express";
 import { AccessTokenGuard } from "../auth/guards/access-token.guard";
@@ -9,6 +9,12 @@ import { AttendanceService } from "./attendance.service";
 
 const clockOutSchema = z.object({
   comment: z.string().min(5),
+});
+
+const updateSessionSchema = z.object({
+  clockInAt: z.string().datetime(),
+  clockOutAt: z.string().datetime().nullable().optional(),
+  workComment: z.string().max(500).nullable().optional(),
 });
 
 type RequestWithUser = Request & { user?: { userId: string; role: Role; employeeId?: string | null } };
@@ -140,6 +146,27 @@ export class AttendanceController {
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
     return res.send(csv);
+  }
+
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Put("attendance/session/:sessionId")
+  async updateSession(
+    @Param("sessionId") sessionId: string,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const parsed = updateSessionSchema.safeParse(body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: "Invalid session payload" });
+    }
+
+    const session = await this.attendance.updateSessionAdmin(sessionId, {
+      clockInAt: new Date(parsed.data.clockInAt),
+      clockOutAt: parsed.data.clockOutAt ? new Date(parsed.data.clockOutAt) : null,
+      workComment: parsed.data.workComment ?? null,
+    });
+    return res.json({ session });
   }
 
 }

@@ -23,7 +23,10 @@ import {
   Save,
   Lock,
   Heart,
+  Upload,
 } from 'lucide-react';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000/api/v1';
 
 type EmployeeProfile = {
   fullName: string;
@@ -46,6 +49,8 @@ type ProfileData = {
   email: string;
   role: string;
   fullName: string | null;
+  employeeId?: string | null;
+  profilePhotoDocumentId?: string | null;
   employee: EmployeeProfile | null;
 };
 
@@ -92,6 +97,8 @@ export default function ProfilePage() {
   const [newPassword, setNewPassword] = React.useState('');
   const [confirmPassword, setConfirmPassword] = React.useState('');
   const [saving, setSaving] = React.useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = React.useState(false);
+  const photoInputRef = React.useRef<HTMLInputElement>(null);
 
   const loadProfile = React.useCallback(() => {
     apiFetch<{ profile: ProfileData }>('/auth/me')
@@ -190,6 +197,51 @@ export default function ProfilePage() {
 
   const emp = profile.employee;
   const initials = getInitials(profile.fullName, profile.email);
+  const profilePhotoUrl =
+    profile.employeeId && profile.profilePhotoDocumentId
+      ? `${API_BASE}/documents/${profile.employeeId}/${profile.profilePhotoDocumentId}/download`
+      : null;
+
+  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please upload an image file');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Profile photo must be under 5 MB');
+      return;
+    }
+    setUploadingPhoto(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch(`${API_BASE}/documents/profile-photo`, {
+        method: 'POST',
+        credentials: 'include',
+        body: fd,
+      });
+      if (!res.ok) throw new Error('Failed to upload profile photo');
+      await loadProfile();
+      const me = await apiFetch<{ profile: ProfileData }>('/auth/me');
+      setProfile(me.profile);
+      if (setUser && state.status === 'authenticated') {
+        setUser({
+          ...state.user,
+          fullName: me.profile.fullName,
+          profilePhotoDocumentId: me.profile.profilePhotoDocumentId ?? null,
+          employeeId: me.profile.employeeId ?? null,
+        });
+      }
+      toast.success('Profile photo updated');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to upload profile photo');
+    } finally {
+      setUploadingPhoto(false);
+      if (photoInputRef.current) photoInputRef.current.value = '';
+    }
+  }
 
   return (
     <div className="mx-auto max-w-3xl space-y-8">
@@ -198,9 +250,13 @@ export default function ProfilePage() {
         <CardContent className="pt-6">
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
             <Avatar className="h-20 w-20">
-              <AvatarFallback className="bg-primary/10 text-2xl font-bold text-primary">
-                {initials}
-              </AvatarFallback>
+              {profilePhotoUrl ? (
+                <img src={profilePhotoUrl} alt={profile.fullName ?? 'Profile'} className="h-full w-full object-cover" />
+              ) : (
+                <AvatarFallback className="bg-primary/10 text-2xl font-bold text-primary">
+                  {initials}
+                </AvatarFallback>
+              )}
             </Avatar>
             <div className="flex-1 text-center sm:text-left">
               <h1 className="text-2xl font-bold tracking-tight">
@@ -227,6 +283,13 @@ export default function ProfilePage() {
                     {formatEmploymentType(emp.employmentType)}
                   </Badge>
                 )}
+              </div>
+              <div className="mt-3">
+                <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+                <Button size="sm" variant="outline" onClick={() => photoInputRef.current?.click()} disabled={uploadingPhoto}>
+                  <Upload className="mr-2 h-3.5 w-3.5" />
+                  {uploadingPhoto ? 'Uploading…' : 'Upload photo'}
+                </Button>
               </div>
             </div>
           </div>

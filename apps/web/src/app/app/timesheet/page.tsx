@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
 import { Download, FileSpreadsheet, Clock, Coffee } from 'lucide-react';
@@ -21,6 +22,7 @@ type WorkSession = {
   workComment: string | null;
   lunches: { startAt: string; endAt: string | null; durationMinutes: number }[];
 };
+type EmployeeOption = { id: string; fullName: string };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000/api/v1';
 
@@ -39,6 +41,13 @@ export default function TimesheetPage() {
   const [initialized, setInitialized] = React.useState(false);
   const [from, setFrom] = React.useState('');
   const [to, setTo] = React.useState('');
+  const [employees, setEmployees] = React.useState<EmployeeOption[]>([]);
+  const [selectedEmployeeId, setSelectedEmployeeId] = React.useState<string>('');
+  const [editingSession, setEditingSession] = React.useState<WorkSession | null>(null);
+  const [editClockIn, setEditClockIn] = React.useState('');
+  const [editClockOut, setEditClockOut] = React.useState('');
+  const [editComment, setEditComment] = React.useState('');
+  const [savingEdit, setSavingEdit] = React.useState(false);
 
   React.useEffect(() => {
     const now = new Date();
@@ -49,25 +58,38 @@ export default function TimesheetPage() {
     setInitialized(true);
   }, []);
 
+  const isAdmin = state.status === 'authenticated' && state.user.role === 'ADMIN';
   const employeeId = state.status === 'authenticated' ? state.user.employeeId : null;
+  const targetEmployeeId = isAdmin ? selectedEmployeeId : employeeId;
 
   React.useEffect(() => {
-    if (!initialized || !employeeId || !from || !to) return;
+    if (!isAdmin) return;
+    apiFetch<{ employees: EmployeeOption[] }>('/employees')
+      .then((res) => {
+        const list = res.employees ?? [];
+        setEmployees(list);
+        if (!selectedEmployeeId && list[0]?.id) setSelectedEmployeeId(list[0].id);
+      })
+      .catch(() => toast.error('Failed to load employees for timesheet'));
+  }, [isAdmin, selectedEmployeeId]);
+
+  React.useEffect(() => {
+    if (!initialized || !targetEmployeeId || !from || !to) return;
     let cancelled = false;
     setLoading(true);
     const params = new URLSearchParams({ from, to, limit: '200' });
-    apiFetch<{ sessions: WorkSession[] }>(`/attendance/${employeeId}/sessions?${params}`)
+    apiFetch<{ sessions: WorkSession[] }>(`/attendance/${targetEmployeeId}/sessions?${params}`)
       .then((res) => { if (!cancelled) setSessions(res.sessions ?? []); })
       .catch(() => { if (!cancelled) toast.error('Failed to load timesheet'); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [initialized, employeeId, from, to]);
+  }, [initialized, targetEmployeeId, from, to]);
 
   const exportSheet = async (format: 'csv' | 'pdf') => {
-    if (!employeeId) return;
+    if (!targetEmployeeId) return;
     try {
       const params = new URLSearchParams({ period: 'daily', from, to, format });
-      const res = await fetch(`${API_BASE}/attendance/${employeeId}/export?${params}`, { credentials: 'include' });
+      const res = await fetch(`${API_BASE}/attendance/${targetEmployeeId}/export?${params}`, { credentials: 'include' });
       if (!res.ok) throw new Error('Export failed');
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -81,9 +103,37 @@ export default function TimesheetPage() {
     }
   };
 
+  async function saveSessionEdit() {
+    if (!editingSession || !editClockIn) return;
+    setSavingEdit(true);
+    try {
+      const clockIn = new Date(editClockIn);
+      const clockOut = editClockOut ? new Date(editClockOut) : null;
+      await apiFetch(`/attendance/session/${editingSession.id}`, {
+        method: 'PUT',
+        json: {
+          clockInAt: clockIn.toISOString(),
+          clockOutAt: clockOut ? clockOut.toISOString() : null,
+          workComment: editComment || null,
+        },
+      });
+      setEditingSession(null);
+      toast.success('Timesheet entry updated');
+      if (targetEmployeeId) {
+        const params = new URLSearchParams({ from, to, limit: '200' });
+        const res = await apiFetch<{ sessions: WorkSession[] }>(`/attendance/${targetEmployeeId}/sessions?${params}`);
+        setSessions(res.sessions ?? []);
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update timesheet entry');
+    } finally {
+      setSavingEdit(false);
+    }
+  }
+
   if (state.status !== 'authenticated') return null;
 
-  if (!employeeId) {
+  if (!targetEmployeeId) {
     return (
       <div className="space-y-6">
         <div>
@@ -119,6 +169,22 @@ export default function TimesheetPage() {
       <Card>
         <CardHeader className="pb-4">
           <div className="flex flex-wrap items-end gap-4">
+            {isAdmin && (
+              <div className="space-y-2">
+                <Label className="text-xs">Employee</Label>
+                <select
+                  className="border-input bg-background ring-offset-background focus-visible:ring-ring flex h-9 w-56 rounded-md border px-3 py-1 text-sm shadow-xs focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+                  value={selectedEmployeeId}
+                  onChange={(e) => setSelectedEmployeeId(e.target.value)}
+                >
+                  {employees.map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {e.fullName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div className="space-y-2">
               <Label className="text-xs">From</Label>
               <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-40" />
@@ -192,6 +258,7 @@ export default function TimesheetPage() {
                 <TableHead>Lunch</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="hidden md:table-cell">Comment</TableHead>
+                {isAdmin && <TableHead className="text-right">Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -226,12 +293,59 @@ export default function TimesheetPage() {
                   <TableCell className="hidden md:table-cell max-w-[200px] truncate text-muted-foreground">
                     {s.workComment ?? '—'}
                   </TableCell>
+                  {isAdmin && (
+                    <TableCell className="text-right">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setEditingSession(s);
+                          setEditClockIn(s.clockInAt.slice(0, 16));
+                          setEditClockOut(s.clockOutAt ? s.clockOutAt.slice(0, 16) : '');
+                          setEditComment(s.workComment ?? '');
+                        }}
+                      >
+                        Edit
+                      </Button>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         )}
       </Card>
+
+      <Dialog open={!!editingSession} onOpenChange={(open) => !open && setEditingSession(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit timesheet entry</DialogTitle>
+            <DialogDescription>Admins can update clock-in/out and comment.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Clock in</Label>
+              <Input type="datetime-local" value={editClockIn} onChange={(e) => setEditClockIn(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Clock out</Label>
+              <Input type="datetime-local" value={editClockOut} onChange={(e) => setEditClockOut(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Comment</Label>
+              <Input value={editComment} onChange={(e) => setEditComment(e.target.value)} placeholder="Optional comment" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingSession(null)}>
+              Cancel
+            </Button>
+            <Button onClick={saveSessionEdit} disabled={savingEdit}>
+              {savingEdit ? 'Saving…' : 'Save changes'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

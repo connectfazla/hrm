@@ -8,6 +8,7 @@ export type SessionUser = {
   employeeId?: string | null;
   email?: string;
   fullName?: string | null;
+  profilePhotoDocumentId?: string | null;
 };
 
 export async function login(email: string, password: string) {

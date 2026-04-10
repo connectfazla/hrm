@@ -10,9 +10,11 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
-import { Settings, User, Building2, Mail, FileText, Save, TestTube } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Settings, User, Building2, Mail, FileText, Save, TestTube, Key, Shield, Users, Copy, Trash2, Upload, Image } from 'lucide-react';
 
-type TabId = 'profile' | 'company' | 'smtp' | 'templates';
+type TabId = 'profile' | 'company' | 'smtp' | 'templates' | 'api-keys' | 'users';
 
 type Profile = {
   userId: string;
@@ -96,11 +98,16 @@ function parseSmtp(raw: unknown): SmtpForm {
   };
 }
 
+type ApiKeyRow = { id: string; name: string; keyPrefix: string; permissions: string[]; lastUsedAt: string | null; createdAt: string };
+type EmployeeUser = { id: string; fullName: string; department: string; userId?: string; role?: string };
+
 const tabs: { id: TabId; label: string; icon: typeof Settings }[] = [
   { id: 'profile', label: 'Profile', icon: User },
   { id: 'company', label: 'Company', icon: Building2 },
   { id: 'smtp', label: 'SMTP', icon: Mail },
   { id: 'templates', label: 'Email Templates', icon: FileText },
+  { id: 'api-keys', label: 'API Keys', icon: Key },
+  { id: 'users', label: 'User Roles', icon: Shield },
 ];
 
 export default function AdminSettingsPage() {
@@ -109,6 +116,7 @@ export default function AdminSettingsPage() {
   const [profile, setProfile] = React.useState<Profile | null>(null);
   const [profileLoading, setProfileLoading] = React.useState(true);
   const [profileSaving, setProfileSaving] = React.useState(false);
+  const [fullName, setFullName] = React.useState('');
   const [email, setEmail] = React.useState('');
   const [currentPassword, setCurrentPassword] = React.useState('');
   const [newPassword, setNewPassword] = React.useState('');
@@ -122,6 +130,9 @@ export default function AdminSettingsPage() {
   const [workdayStart, setWorkdayStart] = React.useState('09:00');
   const [lateGraceMinutes, setLateGraceMinutes] = React.useState('15');
   const [companySaving, setCompanySaving] = React.useState(false);
+  const [companyLogo, setCompanyLogo] = React.useState<string | null>(null);
+  const [logoUploading, setLogoUploading] = React.useState(false);
+  const logoInputRef = React.useRef<HTMLInputElement>(null);
 
   const [smtp, setSmtp] = React.useState<SmtpForm>(parseSmtp(null));
   const [smtpSaving, setSmtpSaving] = React.useState(false);
@@ -129,6 +140,19 @@ export default function AdminSettingsPage() {
 
   const [templates, setTemplates] = React.useState<Record<string, TemplateEntry>>(emptyTemplates());
   const [templatesSaving, setTemplatesSaving] = React.useState(false);
+
+  const [apiKeys, setApiKeys] = React.useState<ApiKeyRow[]>([]);
+  const [apiKeysLoading, setApiKeysLoading] = React.useState(false);
+  const [apiKeysLoaded, setApiKeysLoaded] = React.useState(false);
+  const [newKeyName, setNewKeyName] = React.useState('');
+  const [newKeyPerms, setNewKeyPerms] = React.useState<string[]>(['read']);
+  const [creatingKey, setCreatingKey] = React.useState(false);
+  const [revealedSecret, setRevealedSecret] = React.useState<string | null>(null);
+
+  const [employeeUsers, setEmployeeUsers] = React.useState<EmployeeUser[]>([]);
+  const [usersLoading, setUsersLoading] = React.useState(false);
+  const [usersLoaded, setUsersLoaded] = React.useState(false);
+  const [roleChanging, setRoleChanging] = React.useState<string | null>(null);
 
   const needsSettings = activeTab === 'company' || activeTab === 'smtp' || activeTab === 'templates';
 
@@ -139,6 +163,7 @@ export default function AdminSettingsPage() {
       .then((res) => {
         if (cancelled) return;
         setProfile(res.profile);
+        setFullName(res.profile.fullName ?? '');
         setEmail(res.profile.email);
       })
       .catch(() => toast.error('Failed to load profile'))
@@ -164,6 +189,7 @@ export default function AdminSettingsPage() {
         setLateGraceMinutes(String(data.late_grace_minutes ?? '15'));
         setSmtp(parseSmtp(data.smtp));
         setTemplates(parseTemplates(data.email_templates));
+        if (typeof data.company_logo === 'string') setCompanyLogo(data.company_logo);
         setSettingsLoaded(true);
       })
       .catch(() => toast.error('Failed to load settings'))
@@ -175,6 +201,24 @@ export default function AdminSettingsPage() {
     };
   }, [needsSettings, settingsLoaded, settingsLoading]);
 
+  React.useEffect(() => {
+    if (activeTab !== 'api-keys' || apiKeysLoaded || apiKeysLoading) return;
+    setApiKeysLoading(true);
+    apiFetch<{ keys: ApiKeyRow[] }>('/settings/api-keys')
+      .then((res) => { setApiKeys(res.keys); setApiKeysLoaded(true); })
+      .catch(() => toast.error('Failed to load API keys'))
+      .finally(() => setApiKeysLoading(false));
+  }, [activeTab, apiKeysLoaded, apiKeysLoading]);
+
+  React.useEffect(() => {
+    if (activeTab !== 'users' || usersLoaded || usersLoading) return;
+    setUsersLoading(true);
+    apiFetch<{ employees: EmployeeUser[] }>('/employees')
+      .then((res) => setEmployeeUsers(res.employees))
+      .catch(() => toast.error('Failed to load users'))
+      .finally(() => { setUsersLoading(false); setUsersLoaded(true); });
+  }, [activeTab, usersLoaded, usersLoading]);
+
   const applySettingsToForms = React.useCallback((data: Record<string, unknown>) => {
     setCompanyName(String(data.company_name ?? ''));
     setTimezone(String(data.timezone ?? ''));
@@ -183,6 +227,7 @@ export default function AdminSettingsPage() {
     setLateGraceMinutes(String(data.late_grace_minutes ?? '15'));
     setSmtp(parseSmtp(data.smtp));
     setTemplates(parseTemplates(data.email_templates));
+    if (typeof data.company_logo === 'string') setCompanyLogo(data.company_logo);
   }, []);
 
   const refreshSettings = React.useCallback(async () => {
@@ -201,7 +246,8 @@ export default function AdminSettingsPage() {
       toast.error('Current password is required to set a new password');
       return;
     }
-    const payload: { email?: string; currentPassword?: string; newPassword?: string } = {};
+    const payload: { fullName?: string; email?: string; currentPassword?: string; newPassword?: string } = {};
+    if (fullName.trim()) payload.fullName = fullName.trim();
     if (email.trim()) payload.email = email.trim();
     if (newPassword) {
       payload.currentPassword = currentPassword;
@@ -215,6 +261,7 @@ export default function AdminSettingsPage() {
     try {
       const res = await apiFetch<{ profile: Profile }>('/auth/profile', { method: 'PUT', json: payload });
       setProfile(res.profile);
+      setFullName(res.profile.fullName ?? '');
       setEmail(res.profile.email);
       setCurrentPassword('');
       setNewPassword('');
@@ -243,6 +290,26 @@ export default function AdminSettingsPage() {
     } finally {
       setCompanySaving(false);
     }
+  }
+
+  async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { toast.error('Logo must be under 2 MB'); return; }
+    if (!file.type.startsWith('image/')) { toast.error('File must be an image'); return; }
+    setLogoUploading(true);
+    try {
+      const reader = new FileReader();
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      await apiFetch('/settings/company_logo', { method: 'PUT', json: { value: dataUrl } });
+      setCompanyLogo(dataUrl);
+      toast.success('Logo uploaded');
+    } catch (err) { toast.error(err instanceof Error ? err.message : 'Failed to upload logo'); }
+    finally { setLogoUploading(false); if (logoInputRef.current) logoInputRef.current.value = ''; }
   }
 
   async function handleSaveSmtp() {
@@ -302,6 +369,40 @@ export default function AdminSettingsPage() {
     } finally {
       setTemplatesSaving(false);
     }
+  }
+
+  async function handleCreateApiKey() {
+    if (!newKeyName.trim()) { toast.error('Key name is required'); return; }
+    setCreatingKey(true);
+    try {
+      const res = await apiFetch<{ key: ApiKeyRow; secret: string }>('/settings/api-keys', {
+        method: 'POST', json: { name: newKeyName.trim(), permissions: newKeyPerms },
+      });
+      setApiKeys((prev) => [res.key, ...prev]);
+      setRevealedSecret(res.secret);
+      setNewKeyName('');
+      toast.success('API key created');
+    } catch (err) { toast.error(err instanceof Error ? err.message : 'Failed to create key'); }
+    finally { setCreatingKey(false); }
+  }
+
+  async function handleRevokeApiKey(id: string) {
+    try {
+      await apiFetch(`/settings/api-keys/${id}`, { method: 'DELETE' });
+      setApiKeys((prev) => prev.filter((k) => k.id !== id));
+      toast.success('API key revoked');
+    } catch (err) { toast.error(err instanceof Error ? err.message : 'Failed to revoke key'); }
+  }
+
+  async function handleToggleRole(employeeId: string, currentRole: string) {
+    const newRole = currentRole === 'ADMIN' ? 'EMPLOYEE' : 'ADMIN';
+    setRoleChanging(employeeId);
+    try {
+      await apiFetch(`/employees/${employeeId}/role`, { method: 'PUT', json: { role: newRole } });
+      setEmployeeUsers((prev) => prev.map((u) => u.id === employeeId ? { ...u, role: newRole } : u));
+      toast.success(`Role updated to ${newRole}`);
+    } catch (err) { toast.error(err instanceof Error ? err.message : 'Failed to update role'); }
+    finally { setRoleChanging(null); }
   }
 
   function updateTemplate(id: string, patch: Partial<TemplateEntry>) {
@@ -373,6 +474,16 @@ export default function AdminSettingsPage() {
                   </div>
                 )}
                 <div className="space-y-2">
+                  <Label htmlFor="fullName">Full name</Label>
+                  <Input
+                    id="fullName"
+                    autoComplete="name"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    className="max-w-md"
+                  />
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <Input
                     id="email"
@@ -438,6 +549,26 @@ export default function AdminSettingsPage() {
               </div>
             ) : (
               <div className="space-y-6">
+                <div className="space-y-4">
+                  <Label>Company Logo</Label>
+                  <div className="flex items-center gap-4">
+                    {companyLogo ? (
+                      <img src={companyLogo} alt="Company logo" className="h-16 w-16 rounded-lg border object-contain bg-background p-1" />
+                    ) : (
+                      <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-dashed bg-muted/30">
+                        <Image className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                    )}
+                    <div>
+                      <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+                      <Button type="button" variant="outline" size="sm" disabled={logoUploading} onClick={() => logoInputRef.current?.click()}>
+                        <Upload className="mr-2 h-4 w-4" /> {logoUploading ? 'Uploading…' : 'Upload Logo'}
+                      </Button>
+                      <p className="mt-1 text-xs text-muted-foreground">Max 2 MB. PNG, JPG, or SVG recommended.</p>
+                    </div>
+                  </div>
+                </div>
+                <Separator />
                 <div className="grid gap-6 sm:grid-cols-2">
                   <div className="space-y-2 sm:col-span-2">
                     <Label htmlFor="company_name">Company name</Label>
@@ -632,6 +763,185 @@ export default function AdminSettingsPage() {
             </>
           )}
         </div>
+      )}
+
+      {activeTab === 'api-keys' && (
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <Key className="h-4 w-4" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg">API Keys</CardTitle>
+                  <CardDescription>Create keys for external integrations. Keys are shown only once upon creation.</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="key-name">Key name</Label>
+                  <Input id="key-name" placeholder="e.g. Payroll Integration" value={newKeyName} onChange={(e) => setNewKeyName(e.target.value)} />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label className="text-xs">Permissions</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {['read', 'write', 'payroll', 'attendance', 'leave'].map((p) => (
+                      <label key={p} className="flex cursor-pointer items-center gap-1.5 text-sm">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 rounded border-input accent-primary"
+                          checked={newKeyPerms.includes(p)}
+                          onChange={(e) => setNewKeyPerms((prev) => e.target.checked ? [...prev, p] : prev.filter((x) => x !== p))}
+                        />
+                        <span className="capitalize">{p}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <Button onClick={handleCreateApiKey} disabled={creatingKey}>
+                <Key className="mr-2 h-4 w-4" /> {creatingKey ? 'Creating…' : 'Create API Key'}
+              </Button>
+            </CardContent>
+          </Card>
+
+          {revealedSecret && (
+            <Card className="border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-900/20">
+              <CardContent className="pt-6">
+                <p className="mb-2 text-sm font-medium text-emerald-800 dark:text-emerald-300">Your API key (copy now — it won&apos;t be shown again):</p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 overflow-x-auto rounded border bg-background px-3 py-2 font-mono text-sm">{revealedSecret}</code>
+                  <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(revealedSecret); toast.success('Copied to clipboard'); }}>
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+                <Button variant="ghost" size="sm" className="mt-2" onClick={() => setRevealedSecret(null)}>Dismiss</Button>
+              </CardContent>
+            </Card>
+          )}
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Active keys</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {apiKeysLoading ? (
+                <div className="flex justify-center py-8">
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                </div>
+              ) : apiKeys.length === 0 ? (
+                <p className="py-8 text-center text-sm text-muted-foreground">No API keys created yet.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Prefix</TableHead>
+                      <TableHead>Permissions</TableHead>
+                      <TableHead>Created</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {apiKeys.map((k) => (
+                      <TableRow key={k.id}>
+                        <TableCell className="font-medium">{k.name}</TableCell>
+                        <TableCell><code className="text-xs">{k.keyPrefix}…</code></TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1">
+                            {k.permissions.map((p) => <Badge key={p} variant="secondary" className="text-xs capitalize">{p}</Badge>)}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{new Date(k.createdAt).toLocaleDateString('en-AE', { month: 'short', day: 'numeric', year: 'numeric' })}</TableCell>
+                        <TableCell className="text-right">
+                          <Button size="sm" variant="destructive" onClick={() => handleRevokeApiKey(k.id)}>
+                            <Trash2 className="mr-1 h-3 w-3" /> Revoke
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Usage</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-sm text-muted-foreground">Include your API key in the <code className="rounded bg-muted px-1">X-API-Key</code> header:</p>
+              <pre className="overflow-x-auto rounded-lg border bg-muted/50 p-4 text-sm font-mono">
+{`curl -H "X-API-Key: uppk_your_key_here" \\
+  https://your-domain/api/v1/employees`}
+              </pre>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {activeTab === 'users' && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Users className="h-4 w-4" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">User Roles</CardTitle>
+                <CardDescription>Promote employees to admin or demote admins to employee role.</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {usersLoading ? (
+              <div className="flex justify-center py-8">
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              </div>
+            ) : employeeUsers.length === 0 ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">No employees found.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Employee</TableHead>
+                    <TableHead>Department</TableHead>
+                    <TableHead>Current Role</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {employeeUsers.map((u) => (
+                    <TableRow key={u.id}>
+                      <TableCell className="font-medium">{u.fullName}</TableCell>
+                      <TableCell className="text-muted-foreground">{u.department}</TableCell>
+                      <TableCell>
+                        <Badge variant={u.role === 'ADMIN' ? 'default' : 'secondary'} className="capitalize">
+                          {(u.role ?? 'employee').toLowerCase()}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          size="sm"
+                          variant={u.role === 'ADMIN' ? 'outline' : 'default'}
+                          disabled={roleChanging === u.id}
+                          onClick={() => handleToggleRole(u.id, u.role ?? 'EMPLOYEE')}
+                        >
+                          <Shield className="mr-1 h-3 w-3" />
+                          {roleChanging === u.id ? 'Updating…' : u.role === 'ADMIN' ? 'Remove Admin' : 'Make Admin'}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
       )}
     </div>
   );

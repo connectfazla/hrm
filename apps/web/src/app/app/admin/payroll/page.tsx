@@ -6,12 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { Banknote, Download, Play, Clock, FileText, Users, PlusCircle, MinusCircle, Trash2 } from 'lucide-react';
+import { Banknote, Download, Play, Clock, FileText, Users, PlusCircle, MinusCircle, Trash2, ChevronDown, ChevronRight, Search } from 'lucide-react';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000/api/v1';
 
@@ -66,6 +67,22 @@ type PreviewRow = {
   netPay: number;
 };
 
+type DeductionLine = {
+  id: string;
+  kind: string;
+  amount: number;
+  details: { description: string; isAddition: boolean };
+};
+
+type PayslipDetail = {
+  id: string;
+  baseSalary: number;
+  allowances: number;
+  deductionsTotal: number;
+  netPay: number;
+  deductionLines: DeductionLine[];
+};
+
 export default function AdminPayrollPage() {
   const [month, setMonth] = React.useState('');
   const [selectedRunId, setSelectedRunId] = React.useState<string | null>(null);
@@ -79,6 +96,13 @@ export default function AdminPayrollPage() {
   const [previewRows, setPreviewRows] = React.useState<PreviewRow[]>([]);
   const [previewLoading, setPreviewLoading] = React.useState(false);
   const [previewRefreshKey, setPreviewRefreshKey] = React.useState(0);
+
+  const [expandedId, setExpandedId] = React.useState<string | null>(null);
+  const [expandedDetail, setExpandedDetail] = React.useState<PayslipDetail | null>(null);
+  const [expandedLoading, setExpandedLoading] = React.useState(false);
+
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const [departmentFilter, setDepartmentFilter] = React.useState<string>('all');
 
   React.useEffect(() => {
     const d = new Date();
@@ -107,6 +131,8 @@ export default function AdminPayrollPage() {
     if (!month) return;
     let cancelled = false;
     setPreviewLoading(true);
+    setExpandedId(null);
+    setExpandedDetail(null);
     (async () => {
       try {
         const { employees } = await apiFetch<{ employees: EmployeeRow[] }>('/employees');
@@ -156,12 +182,36 @@ export default function AdminPayrollPage() {
     [runs, selectedRunId],
   );
 
+  const departments = React.useMemo(() => {
+    const set = new Set(previewRows.map((r) => r.department).filter(Boolean));
+    return Array.from(set).sort();
+  }, [previewRows]);
+
+  const filteredRows = React.useMemo(() => {
+    let rows = previewRows;
+    if (departmentFilter && departmentFilter !== 'all') {
+      rows = rows.filter((r) => r.department === departmentFilter);
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      rows = rows.filter((r) => r.fullName.toLowerCase().includes(q));
+    }
+    return rows;
+  }, [previewRows, departmentFilter, searchQuery]);
+
   const totalEmployees = previewRows.length;
   const totalPayrollCost = React.useMemo(
     () => previewRows.reduce((s, r) => s + r.netPay, 0),
     [previewRows],
   );
   const averageSalary = totalEmployees > 0 ? totalPayrollCost / totalEmployees : 0;
+
+  const filteredTotals = React.useMemo(() => ({
+    baseSalary: filteredRows.reduce((s, r) => s + r.baseSalary, 0),
+    allowances: filteredRows.reduce((s, r) => s + r.allowances, 0),
+    deductions: filteredRows.reduce((s, r) => s + r.deductions, 0),
+    netPay: filteredRows.reduce((s, r) => s + r.netPay, 0),
+  }), [filteredRows]);
 
   const runPayroll = async () => {
     setRunning(true);
@@ -264,6 +314,40 @@ export default function AdminPayrollPage() {
       toast.error((err as Error).message);
     } finally {
       setAdjSubmitting(false);
+    }
+  };
+
+  const toggleExpand = async (employeeId: string) => {
+    if (expandedId === employeeId) {
+      setExpandedId(null);
+      setExpandedDetail(null);
+      return;
+    }
+    setExpandedId(employeeId);
+    setExpandedDetail(null);
+    setExpandedLoading(true);
+    try {
+      const { payslip } = await apiFetch<{ payslip: PayslipDetail }>(`/payroll/${employeeId}/${month}`);
+      setExpandedDetail(payslip);
+    } catch {
+      toast.error('Could not load payslip details');
+      setExpandedId(null);
+    } finally {
+      setExpandedLoading(false);
+    }
+  };
+
+  const handleDeleteAdjustment = async (lineId: string) => {
+    try {
+      await apiFetch(`/payroll/adjustment/${lineId}`, { method: 'DELETE' });
+      toast.success('Adjustment removed');
+      if (expandedId) {
+        const { payslip } = await apiFetch<{ payslip: PayslipDetail }>(`/payroll/${expandedId}/${month}`);
+        setExpandedDetail(payslip);
+      }
+      setPreviewRefreshKey((k) => k + 1);
+    } catch (err) {
+      toast.error((err as Error).message ?? 'Failed to delete adjustment');
     }
   };
 
@@ -478,19 +562,45 @@ export default function AdminPayrollPage() {
             figures when payroll has been run for {month || 'the selected month'}.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap items-end gap-4">
+            <div className="relative w-64">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by name…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+              <SelectTrigger className="w-52">
+                <SelectValue placeholder="All departments" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All departments</SelectItem>
+                {departments.map((dept) => (
+                  <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           {!month ? (
             <p className="py-8 text-center text-sm text-muted-foreground">Choose a month to load the preview.</p>
           ) : previewLoading ? (
             <div className="flex justify-center py-12">
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
             </div>
-          ) : previewRows.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">No employees to show.</p>
+          ) : filteredRows.length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              {previewRows.length === 0 ? 'No employees to show.' : 'No employees match the current filters.'}
+            </p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-8" />
                   <TableHead>Employee</TableHead>
                   <TableHead>Department</TableHead>
                   <TableHead className="text-right">Base salary</TableHead>
@@ -501,22 +611,143 @@ export default function AdminPayrollPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {previewRows.map((row) => (
-                  <TableRow key={row.employeeId}>
-                    <TableCell className="font-medium">{row.fullName}</TableCell>
-                    <TableCell>{row.department}</TableCell>
-                    <TableCell className="text-right tabular-nums">{formatAed(row.baseSalary)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{formatAed(row.allowances)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{formatAed(row.deductions)}</TableCell>
-                    <TableCell className="text-right tabular-nums font-medium">{formatAed(row.netPay)}</TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" onClick={() => { setAdjustTarget(row); setAdjIsAddition(false); setAdjDesc(''); setAdjAmount(''); }}>
-                        <PlusCircle className="mr-1 h-3 w-3" /> Adjust
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {filteredRows.map((row) => {
+                  const isExpanded = expandedId === row.employeeId;
+                  return (
+                    <React.Fragment key={row.employeeId}>
+                      <TableRow
+                        className="cursor-pointer"
+                        onClick={() => toggleExpand(row.employeeId)}
+                      >
+                        <TableCell className="w-8 px-2">
+                          {isExpanded
+                            ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                            : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                        </TableCell>
+                        <TableCell className="font-medium">{row.fullName}</TableCell>
+                        <TableCell>{row.department}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatAed(row.baseSalary)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatAed(row.allowances)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatAed(row.deductions)}</TableCell>
+                        <TableCell className="text-right tabular-nums font-medium">{formatAed(row.netPay)}</TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setAdjustTarget(row);
+                              setAdjIsAddition(false);
+                              setAdjDesc('');
+                              setAdjAmount('');
+                            }}
+                          >
+                            <PlusCircle className="mr-1 h-3 w-3" /> Adjust
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                      {isExpanded && (
+                        <TableRow className="bg-muted/30 hover:bg-muted/30">
+                          <TableCell colSpan={8} className="p-0">
+                            <div className="px-8 py-4 space-y-3">
+                              {expandedLoading ? (
+                                <div className="flex items-center gap-2 py-4">
+                                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                                  <span className="text-sm text-muted-foreground">Loading payslip details…</span>
+                                </div>
+                              ) : expandedDetail ? (
+                                <>
+                                  <h4 className="text-sm font-semibold">Payslip breakdown</h4>
+                                  <div className="rounded-md border">
+                                    <Table>
+                                      <TableBody>
+                                        <TableRow>
+                                          <TableCell className="font-medium">Base Salary</TableCell>
+                                          <TableCell className="text-right tabular-nums">{formatAed(expandedDetail.baseSalary)}</TableCell>
+                                          <TableCell className="w-10" />
+                                        </TableRow>
+                                        <TableRow>
+                                          <TableCell className="font-medium">Allowances</TableCell>
+                                          <TableCell className="text-right tabular-nums">{formatAed(expandedDetail.allowances)}</TableCell>
+                                          <TableCell className="w-10" />
+                                        </TableRow>
+                                        {expandedDetail.deductionLines.map((line) => (
+                                          <TableRow key={line.id}>
+                                            <TableCell>
+                                              <span className="flex items-center gap-2">
+                                                {line.details.isAddition ? (
+                                                  <Badge variant="success" className="text-xs">Addition</Badge>
+                                                ) : (
+                                                  <Badge variant="destructive" className="text-xs">Deduction</Badge>
+                                                )}
+                                                {line.details.description}
+                                              </span>
+                                            </TableCell>
+                                            <TableCell className="text-right tabular-nums">
+                                              {line.details.isAddition ? '+' : '−'}{formatAed(line.amount)}
+                                            </TableCell>
+                                            <TableCell className="w-10">
+                                              {line.kind === 'MANUAL' && (
+                                                <Button
+                                                  variant="ghost"
+                                                  size="icon"
+                                                  className="h-7 w-7 text-destructive hover:text-destructive"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDeleteAdjustment(line.id);
+                                                  }}
+                                                >
+                                                  <Trash2 className="h-3.5 w-3.5" />
+                                                </Button>
+                                              )}
+                                            </TableCell>
+                                          </TableRow>
+                                        ))}
+                                        <TableRow className="border-t-2">
+                                          <TableCell className="font-semibold">Net Pay</TableCell>
+                                          <TableCell className="text-right tabular-nums font-semibold">{formatAed(expandedDetail.netPay)}</TableCell>
+                                          <TableCell className="w-10" />
+                                        </TableRow>
+                                      </TableBody>
+                                    </Table>
+                                  </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setAdjustTarget(row);
+                                      setAdjIsAddition(false);
+                                      setAdjDesc('');
+                                      setAdjAmount('');
+                                    }}
+                                  >
+                                    <PlusCircle className="mr-1 h-3 w-3" /> Add adjustment
+                                  </Button>
+                                </>
+                              ) : (
+                                <p className="text-sm text-muted-foreground py-2">No payslip data available for this month.</p>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
               </TableBody>
+              <TableFooter>
+                <TableRow>
+                  <TableCell />
+                  <TableCell className="font-semibold">Totals ({filteredRows.length})</TableCell>
+                  <TableCell />
+                  <TableCell className="text-right tabular-nums font-semibold">{formatAed(filteredTotals.baseSalary)}</TableCell>
+                  <TableCell className="text-right tabular-nums font-semibold">{formatAed(filteredTotals.allowances)}</TableCell>
+                  <TableCell className="text-right tabular-nums font-semibold">{formatAed(filteredTotals.deductions)}</TableCell>
+                  <TableCell className="text-right tabular-nums font-semibold">{formatAed(filteredTotals.netPay)}</TableCell>
+                  <TableCell />
+                </TableRow>
+              </TableFooter>
             </Table>
           )}
         </CardContent>

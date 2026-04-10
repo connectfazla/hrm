@@ -217,12 +217,17 @@ export class ReportsService {
       const avgClockIn = e.clockIns.length > 0
         ? new Date(e.clockIns.reduce((sum, d) => sum + d.getTime(), 0) / e.clockIns.length)
         : null;
+      const totalHours = Number((e.totalMinutes / 60).toFixed(1));
+      const standardHours = e.daysWorked * 8;
+      const overtimeHours = Number((totalHours - standardHours).toFixed(1));
       return {
         employeeId: e.employeeId,
         fullName: e.fullName,
         department: e.department,
         daysWorked: e.daysWorked,
         daysLate: e.daysLate,
+        totalHours,
+        overtimeHours,
         avgHoursPerDay: e.daysWorked > 0 ? Number((e.totalMinutes / e.daysWorked / 60).toFixed(1)) : 0,
         avgClockInTime: avgClockIn?.toISOString() ?? null,
         avgLateMinutes: e.daysLate > 0 ? Math.round(e.totalLateMinutes / e.daysLate) : 0,
@@ -231,8 +236,10 @@ export class ReportsService {
 
     const totalLate = employees.reduce((s, e) => s + e.daysLate, 0);
     const totalDays = employees.reduce((s, e) => s + e.daysWorked, 0);
+    const totalHours = Number(employees.reduce((s, e) => s + e.totalHours, 0).toFixed(1));
+    const totalOvertime = Number(employees.reduce((s, e) => s + Math.max(0, e.overtimeHours), 0).toFixed(1));
     const onTimePercent = totalDays > 0 ? Math.round(((totalDays - totalLate) / totalDays) * 100) : 100;
 
-    return { employees, summary: { totalLate, totalDays, onTimePercent } };
+    return { employees, summary: { totalLate, totalDays, onTimePercent, totalHours, totalOvertime } };
   }
 }

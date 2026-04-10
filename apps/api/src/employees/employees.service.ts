@@ -64,7 +64,7 @@ export class EmployeesService {
 
   async listForUser(role: Role, employeeId: string | null) {
     if (role === Role.ADMIN) {
-      return this.prisma.employee.findMany({
+      const employees = await this.prisma.employee.findMany({
         include: {
           compensation: true,
           bankAccount: true,
@@ -78,6 +78,16 @@ export class EmployeesService {
         },
         orderBy: { fullName: "asc" },
       });
+      const users = await this.prisma.user.findMany({
+        where: { employeeId: { in: employees.map((e) => e.id) } },
+        select: { employeeId: true, id: true, role: true },
+      });
+      const userMap = new Map(users.map((u) => [u.employeeId, u]));
+      return employees.map((e) => ({
+        ...e,
+        userId: userMap.get(e.id)?.id ?? null,
+        role: userMap.get(e.id)?.role ?? null,
+      }));
     }
 
     if (!employeeId) return [];

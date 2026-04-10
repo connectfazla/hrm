@@ -85,7 +85,7 @@ model User {
 
   refreshTokens  RefreshToken[]
   passwordResetTokens PasswordResetToken[]
-  apiKeys        ApiKey[] @relation("UserApiKeys")
+  apiKeys        ApiKey[] @relation("ApiKeyCreator")
   notifications  Notification[]
 
   salaryHistoryChanges SalaryHistory[] @relation("SalaryHistoryChangedBy")
@@ -126,19 +126,17 @@ model PasswordResetToken {
 }
 
 model ApiKey {
-  id String @id @default(uuid()) @db.Uuid
-
-  keyHash String
-  name    String
-  scopes  String[]
-
-  createdByUserId String? @db.Uuid
-  createdByUser   User?    @relation("UserApiKeys", fields: [createdByUserId], references: [id], onDelete: SetNull)
-
-  lastUsedAt DateTime?
-  revokedAt  DateTime?
-
-  createdAt DateTime @default(now())
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String
+  keyHash     String   @unique
+  keyPrefix   String   @default("")
+  permissions String[] @default(["read"])
+  createdById String?  @db.Uuid
+  createdBy   User?    @relation("ApiKeyCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime @default(now())
 }
 
 model Employee {

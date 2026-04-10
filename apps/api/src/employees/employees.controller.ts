@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Put, Req, Res, UseGuards } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Get, Param, Post, Put, Req, Res, UseGuards } from "@nestjs/common";
 import { z } from "zod";
 import type { Response, Request } from "express";
 import { AccessTokenGuard } from "../auth/guards/access-token.guard";
@@ -6,6 +6,7 @@ import { Role } from "@prisma/client";
 import { Roles } from "../auth/decorators/roles.decorator";
 import { RolesGuard } from "../auth/guards/roles.guard";
 import { EmployeesService } from "./employees.service";
+import { PrismaService } from "../prisma/prisma.service";
 
 const createEmployeeSchema = z.object({
   fullName: z.string().min(1),
@@ -55,7 +56,10 @@ type RequestWithUser = Request & { user?: { userId: string; role: Role; employee
 
 @Controller("employees")
 export class EmployeesController {
-  constructor(private readonly employees: EmployeesService) {}
+  constructor(
+    private readonly employees: EmployeesService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   @UseGuards(AccessTokenGuard)
   @Get()
@@ -104,6 +108,25 @@ export class EmployeesController {
     const actor = req.user!;
     const updated = await this.employees.updateEmployee(id, parsed.data, actor.userId);
     return res.json({ employee: updated });
+  }
+
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Put(":id/role")
+  async setRole(
+    @Body() body: unknown,
+    @Param("id") employeeId: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const schema = z.object({ role: z.enum(["ADMIN", "EMPLOYEE"]) });
+    const parsed = schema.safeParse(body);
+    if (!parsed.success) throw new BadRequestException("Invalid role");
+
+    const user = await this.prisma.user.findFirst({ where: { employeeId } });
+    if (!user) throw new BadRequestException("No user account linked to this employee");
+
+    await this.prisma.user.update({ where: { id: user.id }, data: { role: parsed.data.role as Role } });
+    return res.json({ message: "Role updated", role: parsed.data.role });
   }
 }
 

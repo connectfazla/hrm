@@ -176,12 +176,10 @@ export default function AdminSettingsPage() {
   }, []);
 
   React.useEffect(() => {
-    if (!needsSettings || settingsLoaded || settingsLoading) return;
-    let cancelled = false;
+    if (!needsSettings || settingsLoaded) return;
     setSettingsLoading(true);
     apiFetch<Record<string, unknown>>('/settings')
       .then((data) => {
-        if (cancelled) return;
         setCompanyName(String(data.company_name ?? ''));
         setTimezone(String(data.timezone ?? ''));
         setCurrency(String(data.currency ?? 'AED'));
@@ -193,15 +191,10 @@ export default function AdminSettingsPage() {
       })
       .catch(() => toast.error('Failed to load settings'))
       .finally(() => {
-        if (!cancelled) {
-          setSettingsLoaded(true);
-          setSettingsLoading(false);
-        }
+        setSettingsLoaded(true);
+        setSettingsLoading(false);
       });
-    return () => {
-      cancelled = true;
-    };
-  }, [needsSettings, settingsLoaded, settingsLoading]);
+  }, [needsSettings, settingsLoaded]);
 
   React.useEffect(() => {
     if (activeTab !== 'api-keys' || apiKeysLoaded || apiKeysLoading) return;

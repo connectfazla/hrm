@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException, ServiceUnavailableException } from "@nestjs/common";
 import { Role } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import PDFDocument from "pdfkit";
@@ -40,7 +40,7 @@ export class AttendanceService {
     });
 
     if (!cfg) {
-      throw new Error("AttendanceConfig not configured");
+      throw new ServiceUnavailableException("AttendanceConfig not configured. Please seed the database.");
     }
 
     return cfg;
@@ -51,7 +51,7 @@ export class AttendanceService {
       where: { employeeId, clockOutAt: null },
     });
 
-    if (active) throw new Error("Already clocked in");
+    if (active) throw new BadRequestException("Already clocked in");
 
     const cfg = await this.getAttendanceConfig();
     const lateCalc = calcLate(now, { workdayStartTime: cfg.workdayStartTime as Date, lateGraceMinutes: cfg.lateGraceMinutes });
@@ -74,7 +74,7 @@ export class AttendanceService {
       orderBy: { clockInAt: "desc" },
     });
 
-    if (!session) throw new Error("No active work session found");
+    if (!session) throw new BadRequestException("No active work session found");
 
     const updated = await this.prisma.workSession.update({
       where: { id: session.id },
@@ -93,13 +93,13 @@ export class AttendanceService {
       orderBy: { clockInAt: "desc" },
     });
 
-    if (!session) throw new Error("No active work session");
+    if (!session) throw new BadRequestException("No active work session");
 
     const activeLunch = await this.prisma.lunchBreak.findFirst({
       where: { workSessionId: session.id, endAt: null },
     });
 
-    if (activeLunch) throw new Error("Lunch already started");
+    if (activeLunch) throw new BadRequestException("Lunch already started");
 
     return this.prisma.lunchBreak.create({
       data: {
@@ -119,7 +119,7 @@ export class AttendanceService {
       orderBy: { startAt: "desc" },
     });
 
-    if (!lunch) throw new Error("No active lunch found");
+    if (!lunch) throw new BadRequestException("No active lunch found");
 
     const durationMinutes = diffMinutes(lunch.startAt, now);
     const updated = await this.prisma.lunchBreak.update({
@@ -249,7 +249,7 @@ export class AttendanceService {
   }
 
   async adminLateReport(year: number, month: number | null) {
-    if (month != null && (month < 1 || month > 12)) throw new Error("Invalid month");
+    if (month != null && (month < 1 || month > 12)) throw new BadRequestException("Invalid month");
 
     const where: any = { late: true };
     if (month != null) {

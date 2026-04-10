@@ -262,9 +262,9 @@ export class AuthService {
     )}`;
 
     await this.mailer.sendMail({
-      from: process.env.SMTP_FROM ?? "Uppearance HRMS <hrms@upappearance.local>",
+      from: process.env.SMTP_FROM ?? "Uppearance HRMS <hrms@uppearance.local>",
       to: user.email,
-      subject: "Upappearance HRMS - Password reset",
+      subject: "Uppearance HRMS - Password reset",
       text:
         `Hello,\n\n` +
         `You requested a password reset. Use the link below within 15 minutes:\n\n` +
@@ -398,7 +398,7 @@ export class AuthService {
     const secret = process.env.JWT_ACCESS_SECRET ?? "";
     const ttlSeconds = Number(process.env.JWT_ACCESS_TTL_SECONDS ?? 900);
 
-    if (!secret) throw new Error("JWT_ACCESS_SECRET is not configured");
+    if (!secret) throw new UnauthorizedException("JWT_ACCESS_SECRET is not configured");
 
     return jwt.sign(
       { role: user.role, employeeId: user.employeeId ?? null },

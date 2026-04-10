@@ -80,13 +80,13 @@ export class EmployeesController {
   @UseGuards(AccessTokenGuard, RolesGuard)
   @Roles(Role.ADMIN)
   @Post()
-  async create(@Body() body: unknown, @Req() req: RequestWithUser) {
+  async create(@Body() body: unknown, @Req() req: RequestWithUser, @Res({ passthrough: true }) res: Response) {
     const parsed = createEmployeeSchema.safeParse(body);
-    if (!parsed.success) return { message: "Invalid employee payload" };
+    if (!parsed.success) return res.status(400).json({ message: "Invalid employee payload" });
 
     const actor = req.user!;
     const created = await this.employees.createEmployee(parsed.data, actor.userId);
-    return { employee: created };
+    return res.json({ employee: created });
   }
 
   @UseGuards(AccessTokenGuard, RolesGuard)

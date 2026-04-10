@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Put, Req, Res, UseGuards } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Get, Post, Put, Req, Res, UseGuards } from "@nestjs/common";
 import { z } from "zod";
 import type { Response, Request } from "express";
 import { AuthService } from "./auth.service";
@@ -137,7 +137,7 @@ export class AuthController {
   async resetPassword(@Body() body: unknown): Promise<{ ok: true }> {
     const parsed = resetPasswordSchema.safeParse(body);
     if (!parsed.success) {
-      throw new Error("Invalid reset request");
+      throw new BadRequestException("Invalid reset request");
     }
 
     await this.auth.resetPassword(parsed.data.token, parsed.data.newPassword);

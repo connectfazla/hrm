@@ -25,7 +25,7 @@ export class NotificationsService {
   }
 
   private async email(to: string, subject: string, text: string) {
-    const from = process.env.SMTP_FROM ?? "Upappearance HRMS <hrms@uppearance.local>";
+    const from = process.env.SMTP_FROM ?? "Uppearance HRMS <hrms@uppearance.local>";
     await this.mailer.sendMail({ from, to, subject, text });
   }
 
@@ -98,7 +98,7 @@ export class NotificationsService {
 
     // Email notifications for leave decisions.
     if (employeeUser.email) {
-      const subject = `Upappearance HRMS - ${title}`;
+      const subject = `Uppearance HRMS - ${title}`;
       await this.email(
         employeeUser.email,
         subject,

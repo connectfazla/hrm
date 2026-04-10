@@ -140,7 +140,8 @@ export class DocumentsService {
     const doc = await this.prisma.document.findUnique({ where: { id: documentId } });
     if (!doc || doc.deletedAt) throw new NotFoundException("Document not found");
 
-    // Soft delete in DB + remove encrypted blob from disk.
+    this.validateStoragePath(doc.storagePath);
+
     await this.prisma.document.update({
       where: { id: documentId },
       data: { deletedAt: new Date() },
@@ -150,6 +151,21 @@ export class DocumentsService {
       await fs.unlink(path.join(this.storageRoot, doc.storagePath));
     } catch {
       // Ignore file-not-found.
+    }
+  }
+
+  private sanitizeFilename(name: string | null): string {
+    if (!name) return "download";
+    return name.replace(/[^\w.\-() ]/g, "_").replace(/\.{2,}/g, ".").slice(0, 200);
+  }
+
+  private validateStoragePath(storagePath: string) {
+    const normalized = path.normalize(storagePath);
+    if (normalized.includes("..") || path.isAbsolute(normalized)) {
+      throw new ForbiddenException("Invalid storage path");
+    }
+    if (!normalized.startsWith("documents/")) {
+      throw new ForbiddenException("Invalid storage path prefix");
     }
   }
 
@@ -169,10 +185,12 @@ export class DocumentsService {
       throw new ForbiddenException("Not allowed");
     }
 
+    this.validateStoragePath(doc.storagePath);
+
     const payload = await fs.readFile(path.join(this.storageRoot, doc.storagePath));
     const buffer = this.decrypt(payload);
 
-    return { buffer, mimeType: doc.mimeType, originalFileName: doc.originalFileName };
+    return { buffer, mimeType: doc.mimeType, originalFileName: this.sanitizeFilename(doc.originalFileName) };
   }
 
   async expirationsAdmin(withinDays: number, actorUserId: string) {

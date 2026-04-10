@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import {
   PayrollDeductionKind,
   Role,
@@ -11,7 +11,7 @@ type AccessContext = { role: Role; employeeId: string | null };
 function parseMonthParam(month: string) {
   // Expected format: YYYY-MM
   const [y, m] = month.split("-").map((x) => Number(x));
-  if (!y || !m || m < 1 || m > 12) throw new Error("Invalid month");
+  if (!y || !m || m < 1 || m > 12) throw new BadRequestException("Invalid month format. Use YYYY-MM.");
   return new Date(Date.UTC(y, m - 1, 1));
 }
 

@@ -102,12 +102,38 @@ export default function AdminDashboard() {
 
   if (loading || !summary) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <div
-          className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent"
-          role="status"
-          aria-label="Loading"
-        />
+      <div className="space-y-8 animate-fade-up">
+        <div className="space-y-2">
+          <div className="h-8 w-64 animate-shimmer rounded-lg" />
+          <div className="h-4 w-40 animate-shimmer rounded-md" />
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <Card key={i}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <div className="h-4 w-28 animate-shimmer rounded" />
+                <div className="h-4 w-4 animate-shimmer rounded" />
+              </CardHeader>
+              <CardContent>
+                <div className="h-9 w-16 animate-shimmer rounded-md" />
+                <div className="mt-2 h-3 w-32 animate-shimmer rounded" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[...Array(6)].map((_, i) => (
+            <Card key={i}>
+              <CardContent className="flex items-center gap-4 pt-6">
+                <div className="h-10 w-10 animate-shimmer rounded-lg" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 w-20 animate-shimmer rounded" />
+                  <div className="h-3 w-28 animate-shimmer rounded" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     );
   }
@@ -162,57 +188,69 @@ export default function AdminDashboard() {
   const topEmployees = employees.slice(0, 5);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 animate-fade-up">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">
-          Welcome back{state.status === 'authenticated' && state.user.fullName ? `, ${state.user.fullName.split(' ')[0]}` : ''}!
+          Welcome back{state.status === 'authenticated' && state.user.fullName ? `, ${state.user.fullName.split(' ')[0]}` : ''}
         </h1>
-        <p className="text-muted-foreground">{todayLabel()}</p>
+        <p className="text-sm text-muted-foreground mt-1">{todayLabel()}</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Card>
+        <Card className="relative overflow-hidden">
+          <div className="absolute right-0 top-0 h-24 w-24 rounded-bl-full bg-primary/5" />
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Employees</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+              <Users className="h-4 w-4 text-primary" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{summary.headcount.total}</div>
+            <div className="text-3xl font-bold tabular-nums">{summary.headcount.total}</div>
             <p className="mt-1 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
               <Badge variant="secondary" className="font-normal">
                 +{summary.headcount.newHires} new
               </Badge>
-              <span>vs. headcount at start of month</span>
+              <span>this month</span>
             </p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="relative overflow-hidden">
+          <div className="absolute right-0 top-0 h-24 w-24 rounded-bl-full bg-amber-500/5" />
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">On Probation</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10">
+              <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{summary.probation.onProbation}</div>
+            <div className="text-3xl font-bold tabular-nums">{summary.probation.onProbation}</div>
             <p className="mt-1 text-xs text-muted-foreground">Active probation periods</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="relative overflow-hidden">
+          <div className="absolute right-0 top-0 h-24 w-24 rounded-bl-full bg-violet-500/5" />
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Pending Leave</CardTitle>
-            <CalendarDays className="h-4 w-4 text-muted-foreground" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-500/10">
+              <CalendarDays className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{summary.leave.pending}</div>
+            <div className="text-3xl font-bold tabular-nums">{summary.leave.pending}</div>
             <p className="mt-1 text-xs text-muted-foreground">Awaiting review</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="relative overflow-hidden">
+          <div className="absolute right-0 top-0 h-24 w-24 rounded-bl-full bg-emerald-500/5" />
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Today&apos;s Attendance</CardTitle>
-            <UserCheck className="h-4 w-4 text-muted-foreground" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10">
+              <UserCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{summary.attendance.todayPresent}</div>
+            <div className="text-3xl font-bold tabular-nums">{summary.attendance.todayPresent}</div>
             <p className="mt-1 text-xs text-muted-foreground">Clock-in sessions today</p>
           </CardContent>
         </Card>

@@ -48,10 +48,10 @@ function NavLink({ item, collapsed }: { item: NavItem; collapsed?: boolean }) {
     <Link
       href={item.href}
       className={cn(
-        'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+        'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150',
         isActive
-          ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-          : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground',
+          ? 'bg-primary/10 text-primary shadow-sm'
+          : 'text-sidebar-foreground/60 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground',
         collapsed && 'justify-center px-2',
       )}
       title={collapsed ? item.label : undefined}
@@ -93,18 +93,30 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
 
+  const pathname = usePathname();
+
   React.useEffect(() => {
     if (state.status === 'anonymous') {
       router.replace('/login');
     }
   }, [state.status, router]);
 
+  React.useEffect(() => {
+    if (state.status === 'authenticated' && state.user.role !== 'ADMIN' && pathname.startsWith('/app/admin')) {
+      router.replace('/app');
+    }
+  }, [state, pathname, router]);
+
   if (state.status === 'loading') {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="flex flex-col items-center gap-2">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-          <p className="text-sm text-muted-foreground">Loading…</p>
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3 animate-fade-up">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-md shadow-primary/20">
+            <span className="text-sm font-bold text-primary-foreground">U</span>
+          </div>
+          <div className="h-1.5 w-24 overflow-hidden rounded-full bg-primary/10">
+            <div className="h-full w-1/2 animate-shimmer rounded-full bg-primary/40" />
+          </div>
         </div>
       </div>
     );
@@ -127,11 +139,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const sidebarContent = (
     <>
-      <div className={cn('flex items-center gap-2 px-3 py-2', collapsed && 'justify-center px-2')}>
-        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary">
-          <span className="text-xs font-bold text-primary-foreground">U</span>
+      <div className={cn('flex items-center gap-2.5 px-3 py-3', collapsed && 'justify-center px-2')}>
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary shadow-sm">
+          <span className="text-sm font-bold text-primary-foreground">U</span>
         </div>
-        {!collapsed && <span className="font-semibold tracking-tight text-sm">Uppearance</span>}
+        {!collapsed && <span className="font-semibold tracking-tight">Uppearance</span>}
       </div>
       <Separator className="my-2" />
       <nav className="flex-1 space-y-1 px-2">
@@ -192,21 +204,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Desktop sidebar */}
       <aside
         className={cn(
-          'hidden md:flex flex-col border-r border-sidebar-border bg-sidebar transition-all duration-200',
-          collapsed ? 'w-[60px]' : 'w-[220px]',
+          'hidden md:flex flex-col border-r border-sidebar-border bg-sidebar transition-all duration-300 ease-in-out',
+          collapsed ? 'w-[64px]' : 'w-[240px]',
         )}
       >
         <div className="flex flex-1 flex-col py-2">
           {sidebarContent}
         </div>
-        <div className="border-t border-sidebar-border px-2 py-1">
+        <div className="border-t border-sidebar-border px-2 py-1.5">
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7 text-muted-foreground"
+            className="h-7 w-7 text-muted-foreground hover:text-foreground"
             onClick={() => setCollapsed(!collapsed)}
           >
-            <ChevronLeft className={cn('h-4 w-4 transition-transform', collapsed && 'rotate-180')} />
+            <ChevronLeft className={cn('h-4 w-4 transition-transform duration-300', collapsed && 'rotate-180')} />
           </Button>
         </div>
       </aside>
@@ -214,7 +226,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Main content */}
       <div className="flex flex-1 flex-col">
         {/* Top header */}
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b border-border bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60 md:px-6">
+        <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b border-border/60 bg-background/80 px-4 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60 md:px-6">
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon" className="md:hidden">

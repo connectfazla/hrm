@@ -190,11 +190,13 @@ export default function AdminSettingsPage() {
         setSmtp(parseSmtp(data.smtp));
         setTemplates(parseTemplates(data.email_templates));
         if (typeof data.company_logo === 'string') setCompanyLogo(data.company_logo);
-        setSettingsLoaded(true);
       })
       .catch(() => toast.error('Failed to load settings'))
       .finally(() => {
-        if (!cancelled) setSettingsLoading(false);
+        if (!cancelled) {
+          setSettingsLoaded(true);
+          setSettingsLoading(false);
+        }
       });
     return () => {
       cancelled = true;
@@ -205,9 +207,9 @@ export default function AdminSettingsPage() {
     if (activeTab !== 'api-keys' || apiKeysLoaded || apiKeysLoading) return;
     setApiKeysLoading(true);
     apiFetch<{ keys: ApiKeyRow[] }>('/settings/api-keys')
-      .then((res) => { setApiKeys(res.keys); setApiKeysLoaded(true); })
+      .then((res) => setApiKeys(res.keys))
       .catch(() => toast.error('Failed to load API keys'))
-      .finally(() => setApiKeysLoading(false));
+      .finally(() => { setApiKeysLoaded(true); setApiKeysLoading(false); });
   }, [activeTab, apiKeysLoaded, apiKeysLoading]);
 
   React.useEffect(() => {

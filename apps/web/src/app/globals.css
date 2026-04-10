@@ -159,3 +159,26 @@
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
+
+@media (max-width: 768px) {
+  .mobile-card-tight {
+    padding: 0.875rem !important;
+  }
+
+  table th,
+  table td {
+    white-space: nowrap;
+  }
+
+  table th {
+    font-size: 0.75rem;
+    padding-top: 0.6rem;
+    padding-bottom: 0.6rem;
+  }
+
+  table td {
+    font-size: 0.8125rem;
+    padding-top: 0.65rem;
+    padding-bottom: 0.65rem;
+  }
+}

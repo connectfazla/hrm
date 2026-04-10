@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   Clock3,
   FileText,
+  Home,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -162,6 +163,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     state.user.employeeId && state.user.profilePhotoDocumentId
       ? `${API_BASE}/documents/${state.user.employeeId}/${state.user.profilePhotoDocumentId}/download`
       : null;
+  const mobileNav: NavItem[] = isAdmin
+    ? [
+        { href: '/app/admin', label: 'Home', icon: <Home className="h-5 w-5" /> },
+        { href: '/app/clock', label: 'Clock', icon: <Clock3 className="h-5 w-5" /> },
+        { href: '/app/timesheet', label: 'Timesheet', icon: <Timer className="h-5 w-5" /> },
+        { href: '/app/admin/notifications', label: 'Alerts', icon: <Bell className="h-5 w-5" /> },
+        { href: '/app/profile', label: 'Profile', icon: <User className="h-5 w-5" /> },
+      ]
+    : [
+        { href: '/app', label: 'Clock', icon: <Clock3 className="h-5 w-5" /> },
+        { href: '/app/timesheet', label: 'Timesheet', icon: <Timer className="h-5 w-5" /> },
+        { href: '/app/leave', label: 'Leave', icon: <CalendarDays className="h-5 w-5" /> },
+        { href: '/app/notifications', label: 'Alerts', icon: <Bell className="h-5 w-5" /> },
+        { href: '/app/profile', label: 'Profile', icon: <User className="h-5 w-5" /> },
+      ];
 
   const sidebarContent = (
     <>
@@ -276,7 +292,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </Sheet>
 
           <div className="flex-1">
-            <h2 className="text-sm font-medium text-muted-foreground md:hidden">Uppearance</h2>
+            <h2 className="text-sm font-medium text-muted-foreground md:hidden truncate">
+              {companyBranding.companyName || 'Uppearance'}
+            </h2>
           </div>
 
           <div className="flex items-center gap-2">
@@ -332,9 +350,29 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </header>
 
         <main className="flex-1">
-          <div className="mx-auto max-w-6xl p-4 md:p-6 lg:p-8">{children}</div>
+          <div className="mx-auto max-w-6xl px-3 py-4 pb-24 md:p-6 md:pb-6 lg:p-8">{children}</div>
         </main>
       </div>
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border/70 bg-background/95 px-2 pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-2 backdrop-blur md:hidden">
+        <div className="grid grid-cols-5 gap-1">
+          {mobileNav.map((item) => {
+            const active = pathname === item.href || (item.href !== '/app' && pathname.startsWith(item.href));
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  'flex flex-col items-center justify-center gap-1 rounded-lg py-2 text-[11px] font-medium transition-colors',
+                  active ? 'bg-primary/12 text-primary' : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+                )}
+              >
+                {item.icon}
+                <span className="leading-none">{item.label}</span>
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
     </div>
   );
 }

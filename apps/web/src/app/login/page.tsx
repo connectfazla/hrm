@@ -6,7 +6,6 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -36,56 +35,68 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
-      <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,hsl(var(--primary)/0.03)_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--primary)/0.03)_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_50%_50%_at_50%_50%,#000_70%,transparent_100%)]" />
-      <div className="absolute left-1/2 top-1/3 -z-10 h-[500px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/5 blur-3xl" />
-      <div className="w-full max-w-sm animate-fade-up">
-        <div className="mb-10 text-center">
-          <Link href="/" className="inline-flex items-center gap-2.5">
-            <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center shadow-md shadow-primary/20">
-              <span className="text-base font-bold text-primary-foreground">U</span>
+    <div className="min-h-screen bg-[#eef0fb] p-4 md:p-8">
+      <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-6xl overflow-hidden rounded-2xl border bg-white shadow-[0_20px_80px_rgba(30,41,59,0.12)] md:min-h-[680px]">
+        <section className="flex w-full flex-col justify-center px-6 py-10 sm:px-10 lg:w-1/2">
+          <div className="mb-6">
+            <Link href="/" className="inline-flex items-center gap-2.5">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
+                <span className="text-base font-bold text-primary-foreground">U</span>
+              </div>
+              <span className="text-lg font-semibold tracking-tight">Uppearance</span>
+            </Link>
+          </div>
+
+          <h1 className="text-3xl font-semibold tracking-tight">Welcome back !</h1>
+          <p className="mt-2 text-sm text-muted-foreground">Enter to get unlimited access to data &amp; information.</p>
+
+          <form className="mt-8 space-y-5" onSubmit={form.handleSubmit(onSubmit)}>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email *</Label>
+              <Input id="email" type="email" placeholder="Enter your mail address" autoComplete="email" className="h-11" {...form.register('email')} />
+              {form.formState.errors.email && (
+                <p className="text-sm text-destructive">{form.formState.errors.email.message}</p>
+              )}
             </div>
-            <span className="text-xl font-semibold tracking-tight">Uppearance</span>
-          </Link>
-        </div>
-        <Card className="shadow-xl shadow-black/5 border-border/50">
-          <CardHeader className="text-center pb-4">
-            <CardTitle className="text-2xl">Welcome back</CardTitle>
-            <CardDescription className="text-base">Sign in with your work email</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form className="space-y-5" onSubmit={form.handleSubmit(onSubmit)}>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" placeholder="you@company.com" autoComplete="email" className="h-10" {...form.register('email')} />
-                {form.formState.errors.email && (
-                  <p className="text-sm text-destructive">{form.formState.errors.email.message}</p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="password">Password</Label>
-                  <Link className="text-xs text-primary hover:text-primary/80 transition-colors" href="/forgot-password">
-                    Forgot password?
-                  </Link>
-                </div>
-                <Input id="password" type="password" autoComplete="current-password" className="h-10" {...form.register('password')} />
-                {form.formState.errors.password && (
-                  <p className="text-sm text-destructive">{form.formState.errors.password.message}</p>
-                )}
-              </div>
-              <Button type="submit" className="w-full h-10 shadow-sm" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? 'Signing in…' : 'Sign in'}
-              </Button>
-            </form>
-            <div className="mt-6 text-center text-sm text-muted-foreground">
-              Don&apos;t have an account?{' '}
-              <Link href="/register" className="font-medium text-primary hover:text-primary/80 transition-colors">
-                Get started
+
+            <div className="space-y-2">
+              <Label htmlFor="password">Password *</Label>
+              <Input id="password" type="password" placeholder="Enter password" autoComplete="current-password" className="h-11" {...form.register('password')} />
+              {form.formState.errors.password && (
+                <p className="text-sm text-destructive">{form.formState.errors.password.message}</p>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between text-sm">
+              <label className="flex items-center gap-2 text-muted-foreground">
+                <input type="checkbox" className="h-4 w-4 rounded border-input accent-primary" />
+                Remember me
+              </label>
+              <Link className="text-primary hover:text-primary/80 transition-colors" href="/forgot-password">
+                Forgot your password ?
               </Link>
             </div>
-          </CardContent>
-        </Card>
+
+            <Button type="submit" variant="solid" className="h-11 w-full rounded-lg text-base" disabled={form.formState.isSubmitting}>
+              {form.formState.isSubmitting ? 'Signing in…' : 'Log In'}
+            </Button>
+          </form>
+
+          <div className="mt-7 text-center text-sm text-muted-foreground">
+            Don&apos;t have an account ?{' '}
+            <Link href="/register" className="font-medium text-primary hover:text-primary/80 transition-colors">
+              Register here
+            </Link>
+          </div>
+        </section>
+
+        <section className="relative hidden w-1/2 lg:block">
+          <img
+            src="https://durocmachinetool-chatbot.azurewebsites.net/static/components/loginvisualization.jpg"
+            alt="Login visualization"
+            className="h-full w-full object-cover"
+          />
+        </section>
       </div>
     </div>
   );

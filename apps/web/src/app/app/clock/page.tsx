@@ -31,6 +31,25 @@ const WORLD_CLOCKS: WorldClock[] = [
   { label: 'Cairo, EG',  flag: '🇪🇬', tz: 'Africa/Cairo' },
 ];
 
+function useNow() {
+  const [now, setNow] = React.useState(() => new Date());
+  React.useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  return now;
+}
+
+function formatDuration(ms: number) {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  const mm = String(m).padStart(2, '0');
+  const ss = String(s).padStart(2, '0');
+  return h > 0 ? `${h}:${mm}:${ss}` : `${m}:${ss}`;
+}
+
 function useWorldClocks() {
   const [times, setTimes] = React.useState<Record<string, string>>({});
 
@@ -87,11 +106,12 @@ function useDate() {
 export default function ClockPage() {
   const { state, logout } = useAuth();
   const worldTimes = useWorldClocks();
+  const now = useNow();
   const todayDate = useDate();
   const [clockOutOpen, setClockOutOpen] = React.useState(false);
   const [comment, setComment] = React.useState('');
   const [submitting, setSubmitting] = React.useState(false);
-  const [activeSession, setActiveSession] = React.useState<{ clockInAt: string; onLunch: boolean } | null>(null);
+  const [activeSession, setActiveSession] = React.useState<{ clockInAt: string; onLunch: boolean; lunchStartAt: string | null } | null>(null);
   const [checkingSession, setCheckingSession] = React.useState(true);
 
   const employeeId = state.status === 'authenticated' ? state.user.employeeId : null;
@@ -103,14 +123,22 @@ export default function ClockPage() {
     }
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString().slice(0, 10);
-    apiFetch<{ sessions: Array<{ id: string; clockInAt: string; clockOutAt: string | null; lunches: Array<{ endAt: string | null }> }> }>(
+    apiFetch<{
+      sessions: Array<{
+        id: string;
+        clockInAt: string;
+        clockOutAt: string | null;
+        lunches: Array<{ startAt: string; endAt: string | null }>;
+      }>;
+    }>(
       `/attendance/${employeeId}/sessions?from=${todayStart}&to=${now.toISOString().slice(0, 10)}&limit=1`
     )
       .then((r) => {
         const s = r.sessions?.[0];
         if (s && !s.clockOutAt) {
-          const onLunch = s.lunches?.some(l => !l.endAt) ?? false;
-          setActiveSession({ clockInAt: s.clockInAt, onLunch });
+          const activeLunch = s.lunches?.find((l) => !l.endAt) ?? null;
+          const onLunch = Boolean(activeLunch);
+          setActiveSession({ clockInAt: s.clockInAt, onLunch, lunchStartAt: activeLunch?.startAt ?? null });
         }
       })
       .catch(() => {})
@@ -120,15 +148,17 @@ export default function ClockPage() {
   const action = async (endpoint: string, body?: Record<string, unknown>) => {
     setSubmitting(true);
     try {
-      await apiFetch(`/attendance/${endpoint}`, { method: 'POST', json: body ?? {} });
+      const res = await apiFetch<any>(`/attendance/${endpoint}`, { method: 'POST', json: body ?? {} });
       toast.success(`${endpoint.replace(/-/g, ' ')} successful`);
 
       if (endpoint === 'clock-in') {
-        setActiveSession({ clockInAt: new Date().toISOString(), onLunch: false });
+        const clockInAt = typeof res?.session?.clockInAt === 'string' ? res.session.clockInAt : new Date().toISOString();
+        setActiveSession({ clockInAt, onLunch: false, lunchStartAt: null });
       } else if (endpoint === 'lunch-start') {
-        setActiveSession(prev => prev ? { ...prev, onLunch: true } : null);
+        const startAt = typeof res?.lunch?.startAt === 'string' ? res.lunch.startAt : new Date().toISOString();
+        setActiveSession((prev) => (prev ? { ...prev, onLunch: true, lunchStartAt: startAt } : null));
       } else if (endpoint === 'lunch-end') {
-        setActiveSession(prev => prev ? { ...prev, onLunch: false } : null);
+        setActiveSession((prev) => (prev ? { ...prev, onLunch: false, lunchStartAt: null } : null));
       } else if (endpoint === 'clock-out') {
         setActiveSession(null);
       }
@@ -221,6 +251,16 @@ export default function ClockPage() {
               <p className="text-xs text-emerald-600 dark:text-emerald-400">
                 Clocked in at {new Date(activeSession.clockInAt).toLocaleTimeString('en-AE', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Dubai' })}
               </p>
+              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
+                <Badge variant="outline" className="border-emerald-300/70 bg-white/40 font-mono tabular-nums text-emerald-700 dark:border-emerald-800/70 dark:bg-emerald-950/10 dark:text-emerald-200">
+                  Elapsed {formatDuration(now.getTime() - new Date(activeSession.clockInAt).getTime())}
+                </Badge>
+                {activeSession.onLunch && activeSession.lunchStartAt && (
+                  <Badge variant="outline" className="border-amber-300/70 bg-white/40 font-mono tabular-nums text-amber-700 dark:border-amber-800/70 dark:bg-amber-950/10 dark:text-amber-200">
+                    Lunch {formatDuration(now.getTime() - new Date(activeSession.lunchStartAt).getTime())}
+                  </Badge>
+                )}
+              </div>
             </div>
             <Badge variant={activeSession.onLunch ? 'warning' : 'success'}>
               {activeSession.onLunch ? 'Lunch' : 'Active'}

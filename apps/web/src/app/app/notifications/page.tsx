@@ -28,6 +28,9 @@ export default function NotificationsPage() {
       .then((res) => setNotifications(res.notifications))
       .catch(() => toast.error('Failed to load notifications'))
       .finally(() => setLoading(false));
+
+    // Optimistically mark as read when opening the page.
+    apiFetch('/notifications/mark-all-read', { method: 'POST', json: {} }).catch(() => undefined);
   }, []);
 
   if (loading) {

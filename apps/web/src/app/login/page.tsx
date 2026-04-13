@@ -11,8 +11,9 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { login } from '@/lib/auth';
 import { useAuth } from '@/components/auth-provider';
-import { Clock, Calendar, Wallet, Users, Shield, FileText } from 'lucide-react';
+import Image from 'next/image';
 import { BrandLogo } from '@/components/brand/brand-logo';
+import loginVisualization from '@/assets/login-visualization.png';
 
 const schema = z.object({
   email: z.string().email(),
@@ -114,47 +115,14 @@ export default function LoginPage() {
           </div>
         </section>
 
-        {/* Right: branded illustration */}
+        {/* Right: image only */}
         <section className="relative hidden w-1/2 overflow-hidden lg:block">
-          <div className="absolute inset-0 bg-gradient-to-br from-[#73168C] via-[#281259] to-[#000114]" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.1)_0%,transparent_50%)]" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,rgba(255,255,255,0.08)_0%,transparent_40%)]" />
-
-          <div className="relative flex h-full flex-col items-center justify-center p-12 text-white">
-            <div className="mb-8 flex items-center justify-center rounded-2xl bg-white/15 p-2 backdrop-blur-sm">
-              <BrandLogo href={null} size="xl" className="drop-shadow-md" />
-            </div>
-
-            <h2 className="mb-3 text-center text-2xl font-semibold">
-              Your HR, Simplified.
-            </h2>
-            <p className="mb-10 max-w-xs text-center text-sm text-white/75">
-              Everything you need to manage your team — attendance, payroll, leave, and documents — in one place.
-            </p>
-
-            <div className="grid w-full max-w-xs grid-cols-2 gap-3">
-              {[
-                { icon: Clock, label: 'Attendance' },
-                { icon: Calendar, label: 'Leave' },
-                { icon: Wallet, label: 'Payroll' },
-                { icon: Users, label: 'Team' },
-                { icon: FileText, label: 'Documents' },
-                { icon: Shield, label: 'Compliance' },
-              ].map((item) => (
-                <div
-                  key={item.label}
-                  className="flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2.5 backdrop-blur-sm"
-                >
-                  <item.icon className="size-4 text-white/80" />
-                  <span className="text-xs font-medium text-white/90">{item.label}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-10 rounded-full bg-white/10 px-4 py-1.5 text-xs text-white/70 backdrop-blur-sm">
-              UAE Labour Law Compliant
-            </div>
-          </div>
+          <Image
+            src={loginVisualization}
+            alt=""
+            priority
+            className="h-full w-full object-cover"
+          />
         </section>
       </div>
     </div>

@@ -25,6 +25,7 @@ import {
 import { cn } from '@/lib/cn';
 import { useAuth } from '@/components/auth-provider';
 import { Button } from '@/components/ui/button';
+import { apiFetch } from '@/lib/api';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -95,6 +96,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { state, logout } = useAuth();
   const [collapsed, setCollapsed] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const [hasUnreadNotifications, setHasUnreadNotifications] = React.useState(false);
   const pathname = usePathname();
 
   React.useEffect(() => {
@@ -220,6 +222,27 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     </>
   );
 
+  const refreshUnread = React.useCallback(() => {
+    apiFetch<{ unread: number }>('/notifications/unread-count')
+      .then((r) => setHasUnreadNotifications((r.unread ?? 0) > 0))
+      .catch(() => undefined);
+  }, []);
+
+  React.useEffect(() => {
+    if (state.status !== 'authenticated') return;
+    refreshUnread();
+    const id = setInterval(refreshUnread, 30000);
+    return () => clearInterval(id);
+  }, [state.status, refreshUnread]);
+
+  React.useEffect(() => {
+    if (pathname === '/app/notifications' || pathname === '/app/admin/notifications') {
+      // The notifications pages mark items as read; refresh shortly after navigation.
+      const t = setTimeout(refreshUnread, 750);
+      return () => clearTimeout(t);
+    }
+  }, [pathname, refreshUnread]);
+
   return (
     <div className="flex min-h-screen bg-background">
       {/* Desktop sidebar */}
@@ -274,6 +297,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               onClick={() => router.push(isAdmin ? '/app/admin/notifications' : '/app/notifications')}
             >
               <Bell className="h-4 w-4" />
+              {hasUnreadNotifications && (
+                <span
+                  aria-hidden
+                  className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500 ring-2 ring-background"
+                />
+              )}
             </Button>
             <div className="hidden md:block">
               <DropdownMenu>

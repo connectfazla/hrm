@@ -28,6 +28,8 @@ export default function AdminNotificationsPage() {
       .then((res) => setNotifications(res.notifications))
       .catch(() => toast.error('Failed to load notifications'))
       .finally(() => setLoading(false));
+
+    apiFetch('/notifications/mark-all-read', { method: 'POST', json: {} }).catch(() => undefined);
   }, []);
 
   if (loading) {

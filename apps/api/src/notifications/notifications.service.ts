@@ -24,6 +24,20 @@ export class NotificationsService {
     });
   }
 
+  async unreadCountForUser(userId: string) {
+    return this.prisma.notification.count({
+      where: { userId, readAt: null },
+    });
+  }
+
+  async markAllRead(userId: string, now: Date) {
+    const res = await this.prisma.notification.updateMany({
+      where: { userId, readAt: null },
+      data: { readAt: now },
+    });
+    return { updated: res.count };
+  }
+
   private async email(to: string, subject: string, text: string) {
     const from = process.env.SMTP_FROM ?? "Uppearance HRMS <hrms@uppearance.local>";
     await this.mailer.sendMail({ from, to, subject, text });

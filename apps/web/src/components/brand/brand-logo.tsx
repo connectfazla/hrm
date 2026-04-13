@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
-import logoDark from '@/assets/uppearance-logo-dark.png';
+import logoTransparent from '@/assets/uppearance-logo.png';
 
 const sizeClass = {
   sm: 'h-6',
@@ -26,7 +26,7 @@ type BrandLogoProps = {
 export function BrandLogo({ className, size = 'md', href = '/' }: BrandLogoProps) {
   const mark = (
     <Image
-      src={logoDark}
+      src={logoTransparent}
       alt="Uppearance"
       priority={size === 'hero'}
       className={cn('w-auto select-none object-contain', sizeClass[size], className)}

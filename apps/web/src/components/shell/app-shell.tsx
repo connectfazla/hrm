@@ -36,6 +36,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
+import { BrandLogo } from '@/components/brand/brand-logo';
 
 type NavItem = { href: string; label: string; icon: React.ReactNode };
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000/api/v1';
@@ -94,11 +95,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { state, logout } = useAuth();
   const [collapsed, setCollapsed] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
-  const [companyBranding, setCompanyBranding] = React.useState<{ companyName: string; companyLogo: string | null }>({
-    companyName: 'Uppearance',
-    companyLogo: null,
-  });
-
   const pathname = usePathname();
 
   React.useEffect(() => {
@@ -113,30 +109,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   }, [state, pathname, router]);
 
-  React.useEffect(() => {
-    fetch(`${API_BASE}/settings/branding`, { credentials: 'include' })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (!data) return;
-        setCompanyBranding({
-          companyName: typeof data.companyName === 'string' && data.companyName.trim() ? data.companyName : 'Uppearance',
-          companyLogo: typeof data.companyLogo === 'string' ? data.companyLogo : null,
-        });
-      })
-      .catch(() => undefined);
-  }, []);
-
   if (state.status === 'loading') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3 animate-fade-up">
-          <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-primary shadow-md shadow-primary/20">
-            {companyBranding.companyLogo ? (
-              <img src={companyBranding.companyLogo} alt="Company logo" className="h-full w-full object-cover" />
-            ) : (
-              <span className="text-sm font-bold text-primary-foreground">U</span>
-            )}
-          </div>
+          <BrandLogo href={null} size="lg" />
           <div className="h-1.5 w-24 overflow-hidden rounded-full bg-primary/10">
             <div className="h-full w-1/2 animate-shimmer rounded-full bg-primary/40" />
           </div>
@@ -154,6 +131,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   const isAdmin = state.user.role === 'ADMIN';
+  const appHomeHref = isAdmin ? '/app/admin' : '/app';
   const nav = isAdmin ? adminNav : employeeNav;
   const displayName = state.user.fullName || state.user.email || 'User';
   const initials = state.user.fullName
@@ -181,15 +159,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const sidebarContent = (
     <>
-      <div className={cn('flex items-center gap-2.5 px-3 py-3', collapsed && 'justify-center px-2')}>
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary shadow-sm">
-          {companyBranding.companyLogo ? (
-            <img src={companyBranding.companyLogo} alt="Company logo" className="h-full w-full object-cover" />
-          ) : (
-            <span className="text-sm font-bold text-primary-foreground">U</span>
-          )}
-        </div>
-        {!collapsed && <span className="font-semibold tracking-tight">{companyBranding.companyName || 'Uppearance'}</span>}
+      <div className={cn('flex items-center px-3 py-3', collapsed ? 'justify-center px-2' : 'gap-2')}>
+        <BrandLogo size="md" href={appHomeHref} />
       </div>
       <Separator className="my-2" />
       <nav className="flex-1 space-y-1 px-2">
@@ -291,10 +262,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </SheetContent>
           </Sheet>
 
-          <div className="flex-1">
-            <h2 className="text-sm font-medium text-muted-foreground md:hidden truncate">
-              {companyBranding.companyName || 'Uppearance'}
-            </h2>
+          <div className="flex flex-1 items-center md:hidden">
+            <BrandLogo size="sm" href={appHomeHref} />
           </div>
 
           <div className="flex items-center gap-2">

@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { BrandLogo } from '@/components/brand/brand-logo';
 import { forgotPassword } from '@/lib/auth';
 
 const schema = z.object({ email: z.string().email() });
@@ -30,13 +31,8 @@ export default function ForgotPasswordPage() {
     <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4 py-10">
       <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,hsl(var(--muted))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--muted))_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_50%_50%_at_50%_50%,#000_70%,transparent_100%)]" />
       <div className="w-full max-w-sm">
-        <div className="mb-8 text-center">
-          <Link href="/" className="inline-flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-sm font-bold text-primary-foreground">U</span>
-            </div>
-            <span className="text-lg font-semibold tracking-tight">Uppearance</span>
-          </Link>
+        <div className="mb-8 flex justify-center">
+          <BrandLogo size="md" href="/" />
         </div>
         <Card>
           <CardHeader className="text-center">

@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { BrandLogo } from '@/components/brand/brand-logo';
 import { useAuth } from '@/components/auth-provider';
 import { apiFetch } from '@/lib/api';
 import type { SessionUser } from '@/lib/auth';
@@ -54,13 +55,8 @@ export default function RegisterPage() {
       <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,hsl(var(--primary)/0.03)_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--primary)/0.03)_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_50%_50%_at_50%_50%,#000_70%,transparent_100%)]" />
       <div className="absolute left-1/2 top-1/3 -z-10 h-[500px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/5 blur-3xl" />
       <div className="w-full max-w-sm animate-fade-up">
-        <div className="mb-10 text-center">
-          <Link href="/" className="inline-flex items-center gap-2.5">
-            <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center shadow-md shadow-primary/20">
-              <span className="text-base font-bold text-primary-foreground">U</span>
-            </div>
-            <span className="text-xl font-semibold tracking-tight">Uppearance</span>
-          </Link>
+        <div className="mb-10 flex justify-center">
+          <BrandLogo size="lg" href="/" />
         </div>
         <Card className="shadow-xl shadow-black/5 border-border/50">
           <CardHeader className="text-center pb-4">

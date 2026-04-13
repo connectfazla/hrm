@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { login } from '@/lib/auth';
 import { useAuth } from '@/components/auth-provider';
 import { Clock, Calendar, Wallet, Users, Shield, FileText } from 'lucide-react';
+import { BrandLogo } from '@/components/brand/brand-logo';
 
 const schema = z.object({
   email: z.string().email(),
@@ -41,12 +42,7 @@ export default function LoginPage() {
         {/* Left: login form */}
         <section className="flex w-full flex-col justify-center px-6 py-10 sm:px-10 lg:w-1/2">
           <div className="mb-6">
-            <Link href="/" className="inline-flex items-center gap-2.5">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary shadow-sm shadow-primary/20">
-                <span className="text-base font-bold text-primary-foreground">U</span>
-              </div>
-              <span className="text-lg font-semibold tracking-tight text-foreground">Uppearance</span>
-            </Link>
+            <BrandLogo size="lg" href="/" />
           </div>
 
           <h1 className="text-3xl font-semibold tracking-tight text-foreground">Welcome back!</h1>
@@ -120,13 +116,13 @@ export default function LoginPage() {
 
         {/* Right: branded illustration */}
         <section className="relative hidden w-1/2 overflow-hidden lg:block">
-          <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/90 to-primary/70" />
+          <div className="absolute inset-0 bg-gradient-to-br from-[#73168C] via-[#281259] to-[#000114]" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.1)_0%,transparent_50%)]" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,rgba(255,255,255,0.08)_0%,transparent_40%)]" />
 
           <div className="relative flex h-full flex-col items-center justify-center p-12 text-white">
-            <div className="mb-8 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15 backdrop-blur-sm">
-              <span className="text-2xl font-bold">U</span>
+            <div className="mb-8 flex items-center justify-center rounded-2xl bg-white/15 p-2 backdrop-blur-sm">
+              <BrandLogo href={null} size="xl" className="drop-shadow-md" />
             </div>
 
             <h2 className="mb-3 text-center text-2xl font-semibold">

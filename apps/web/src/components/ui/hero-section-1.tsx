@@ -16,6 +16,7 @@ import {
   Wallet,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { BrandLogo } from '@/components/brand/brand-logo';
 import { AnimatedGroup } from '@/components/ui/animated-group';
 import { cn } from '@/lib/utils';
 
@@ -57,9 +58,9 @@ export function HeroSection() {
           aria-hidden
           className="z-[2] pointer-events-none absolute inset-0 isolate hidden opacity-50 contain-strict lg:block"
         >
-          <div className="absolute left-0 top-0 h-[80rem] w-[35rem] -translate-y-[350px] -rotate-45 rounded-full bg-[radial-gradient(68.54%_68.72%_at_55.02%_31.46%,hsla(234,89%,56%,.08)_0,hsla(234,89%,56%,.02)_50%,hsla(234,89%,56%,0)_80%)]" />
-          <div className="absolute left-0 top-0 h-[80rem] w-56 -rotate-45 rounded-full bg-[radial-gradient(50%_50%_at_50%_50%,hsla(234,89%,56%,.06)_0,hsla(234,89%,56%,.02)_80%,transparent_100%)] [translate:5%_-50%]" />
-          <div className="absolute left-0 top-0 h-[80rem] w-56 -translate-y-[350px] -rotate-45 bg-[radial-gradient(50%_50%_at_50%_50%,hsla(234,89%,56%,.04)_0,hsla(234,89%,56%,.02)_80%,transparent_100%)]" />
+          <div className="absolute left-0 top-0 h-[80rem] w-[35rem] -translate-y-[350px] -rotate-45 rounded-full bg-[radial-gradient(68.54%_68.72%_at_55.02%_31.46%,hsla(288,73%,32%,.1)_0,hsla(288,73%,32%,.03)_50%,hsla(288,73%,32%,0)_80%)]" />
+          <div className="absolute left-0 top-0 h-[80rem] w-56 -rotate-45 rounded-full bg-[radial-gradient(50%_50%_at_50%_50%,hsla(288,73%,32%,.08)_0,hsla(259,66%,21%,.04)_80%,transparent_100%)] [translate:5%_-50%]" />
+          <div className="absolute left-0 top-0 h-[80rem] w-56 -translate-y-[350px] -rotate-45 bg-[radial-gradient(50%_50%_at_50%_50%,hsla(259,66%,21%,.06)_0,hsla(259,66%,21%,.02)_80%,transparent_100%)]" />
         </div>
         <section>
           <div className="relative pt-24 md:pt-36">
@@ -91,7 +92,7 @@ export function HeroSection() {
               className="absolute inset-0 -z-20"
             >
               <div className="absolute inset-x-0 top-56 -z-20 hidden lg:top-32 dark:block">
-                <div className="mx-auto h-[600px] max-w-5xl rounded-full bg-gradient-to-br from-primary/20 via-primary/5 to-transparent blur-3xl" />
+                <div className="mx-auto h-[600px] max-w-5xl rounded-full bg-gradient-to-br from-brand-accent/25 via-brand-accent/8 to-transparent blur-3xl" />
               </div>
             </AnimatedGroup>
             <div
@@ -121,7 +122,7 @@ export function HeroSection() {
 
                   <h1 className="mx-auto mt-8 max-w-4xl text-balance text-5xl font-bold tracking-tight md:text-7xl lg:mt-16 xl:text-[5.25rem]">
                     HR Management Made{' '}
-                    <span className="bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+                    <span className="bg-gradient-to-r from-[#73168C] to-[#281259] bg-clip-text text-transparent">
                       Effortless
                     </span>
                   </h1>
@@ -146,7 +147,7 @@ export function HeroSection() {
                   className="mt-12 flex flex-col items-center justify-center gap-2 md:flex-row"
                 >
                   <div key={1}>
-                    <Button asChild size="lg" className="rounded-xl px-6 text-base shadow-lg shadow-primary/25">
+                    <Button asChild size="lg" className="rounded-xl px-6 text-base shadow-lg shadow-[#000114]/25">
                       <Link href="/register">
                         <span className="text-nowrap">Get Started Free</span>
                         <ArrowRight className="ml-1 size-4" />
@@ -178,7 +179,7 @@ export function HeroSection() {
               <div className="relative -mr-56 mt-8 overflow-hidden px-2 sm:mr-0 sm:mt-12 md:mt-20">
                 <div aria-hidden className="bg-gradient-to-b to-background absolute inset-0 z-10 from-transparent from-35%" />
                 <div className="relative mx-auto max-w-6xl overflow-hidden rounded-2xl border bg-background p-4 shadow-lg shadow-zinc-950/15 ring-1 ring-background">
-                  <div className="aspect-[15/8] relative rounded-2xl border bg-gradient-to-br from-primary/5 via-background to-primary/10 flex items-center justify-center">
+                  <div className="aspect-[15/8] relative rounded-2xl border bg-gradient-to-br from-brand-accent/10 via-background to-brand-accent-deep/10 flex items-center justify-center">
                     <div className="grid max-w-3xl grid-cols-2 gap-4 p-8 sm:grid-cols-3">
                       {[
                         { icon: Clock, title: 'Time Tracking', desc: 'Clock in/out with one tap' },
@@ -192,8 +193,8 @@ export function HeroSection() {
                           key={item.title}
                           className="flex flex-col items-center gap-2 rounded-xl border bg-background/80 p-4 text-center shadow-sm backdrop-blur"
                         >
-                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                            <item.icon className="size-5 text-primary" />
+                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-accent/12">
+                            <item.icon className="size-5 text-brand-accent-deep" />
                           </div>
                           <span className="text-sm font-medium">{item.title}</span>
                           <span className="text-xs text-muted-foreground">{item.desc}</span>
@@ -258,12 +259,7 @@ const HeroHeader = () => {
         >
           <div className="relative flex flex-wrap items-center justify-between gap-6 py-3 lg:gap-0 lg:py-4">
             <div className="flex w-full justify-between lg:w-auto">
-              <Link href="/" aria-label="home" className="flex items-center gap-2.5">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary shadow-sm shadow-primary/20">
-                  <span className="text-sm font-bold text-primary-foreground">U</span>
-                </div>
-                <span className="text-lg font-semibold tracking-tight">Uppearance</span>
-              </Link>
+              <BrandLogo size="md" href="/" />
 
               <button
                 onClick={() => setMenuState(!menuState)}

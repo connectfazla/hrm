@@ -102,9 +102,13 @@ export function HeroSection() {
             <div className="mx-auto max-w-7xl px-6">
               <div className="text-center sm:mx-auto lg:mr-auto lg:mt-0">
                 <AnimatedGroup variants={transitionVariants}>
+                  <div className="mx-auto flex justify-center">
+                    <BrandLogo href="/" size="hero" />
+                  </div>
+
                   <Link
                     href="/register"
-                    className="hover:bg-background group mx-auto flex w-fit items-center gap-4 rounded-full border bg-muted p-1 pl-4 shadow-md shadow-black/5 transition-all duration-300"
+                    className="hover:bg-background group mx-auto mt-8 flex w-fit items-center gap-4 rounded-full border bg-muted p-1 pl-4 shadow-md shadow-black/5 transition-all duration-300"
                   >
                     <span className="text-foreground text-sm">Built for UAE Labour Law compliance</span>
                     <span className="block h-4 w-0.5 border-l bg-zinc-300" />

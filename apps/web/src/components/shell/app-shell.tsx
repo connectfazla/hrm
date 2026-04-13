@@ -160,7 +160,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const sidebarContent = (
     <>
       <div className={cn('flex items-center px-3 py-3', collapsed ? 'justify-center px-2' : 'gap-2')}>
-        <BrandLogo size="md" href={appHomeHref} />
+        <BrandLogo size={collapsed ? 'md' : 'lg'} href={appHomeHref} />
       </div>
       <Separator className="my-2" />
       <nav className="flex-1 space-y-1 px-2">
@@ -263,7 +263,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </Sheet>
 
           <div className="flex flex-1 items-center md:hidden">
-            <BrandLogo size="sm" href={appHomeHref} />
+            <BrandLogo size="lg" href={appHomeHref} />
           </div>
 
           <div className="flex items-center gap-2">

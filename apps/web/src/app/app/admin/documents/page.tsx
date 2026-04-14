@@ -9,11 +9,12 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
+import { filterOutLegacyDemoEmployees } from '@/lib/legacy-demo-employees';
 import { Progress } from '@/components/ui/progress';
 import { Upload, FileText } from 'lucide-react';
 
 type ExpiringDoc = { id: string; category: string; originalFileName: string | null; expiryDate: string; employee?: { fullName: string } };
-type Employee = { id: string; fullName: string };
+type Employee = { id: string; fullName: string; workEmail?: string | null };
 
 const CATEGORIES = [
   'EMPLOYMENT_CONTRACT', 'EMIRATES_ID', 'PASSPORT', 'VISA',
@@ -36,7 +37,7 @@ export default function AdminDocumentsPage() {
     ])
       .then(([expRes, empRes]) => {
         setExpiring(Array.isArray(expRes) ? expRes : (expRes.documents ?? []));
-        setEmployees(empRes.employees);
+        setEmployees(filterOutLegacyDemoEmployees(empRes.employees ?? []));
       })
       .catch(() => toast.error('Failed to load data'))
       .finally(() => setLoading(false));

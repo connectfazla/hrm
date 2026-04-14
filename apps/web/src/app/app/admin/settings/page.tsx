@@ -10,8 +10,8 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
+import { filterOutLegacyDemoEmployees } from '@/lib/legacy-demo-employees';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Settings, User, Building2, Mail, FileText, Save, TestTube, Key, Shield, Users, Copy, Trash2, Upload, Image } from 'lucide-react';
 
 type TabId = 'profile' | 'company' | 'smtp' | 'templates' | 'api-keys' | 'users';
@@ -153,8 +153,6 @@ export default function AdminSettingsPage() {
   const [usersLoading, setUsersLoading] = React.useState(false);
   const [usersLoaded, setUsersLoaded] = React.useState(false);
   const [roleChanging, setRoleChanging] = React.useState<string | null>(null);
-  const [demoBusy, setDemoBusy] = React.useState<null | 'add' | 'delete'>(null);
-  const [demoConfirmOpen, setDemoConfirmOpen] = React.useState(false);
 
   const needsSettings = activeTab === 'company' || activeTab === 'smtp' || activeTab === 'templates';
 
@@ -211,7 +209,7 @@ export default function AdminSettingsPage() {
     if (activeTab !== 'users' || usersLoaded || usersLoading) return;
     setUsersLoading(true);
     apiFetch<{ employees: EmployeeUser[] }>('/employees')
-      .then((res) => setEmployeeUsers(res.employees))
+      .then((res) => setEmployeeUsers(filterOutLegacyDemoEmployees(res.employees ?? [])))
       .catch(() => toast.error('Failed to load users'))
       .finally(() => { setUsersLoading(false); setUsersLoaded(true); });
   }, [activeTab, usersLoaded, usersLoading]);
@@ -267,40 +265,6 @@ export default function AdminSettingsPage() {
       toast.error(err instanceof Error ? err.message : 'Failed to update profile');
     } finally {
       setProfileSaving(false);
-    }
-  }
-
-  async function handleAddDemo() {
-    setDemoBusy('add');
-    try {
-      const res = await apiFetch<{ ok: true; message: string; demo?: { adminEmail: string; employeeEmail: string; password: string } }>(
-        '/settings/demo-data/add',
-        { method: 'POST', json: {} },
-      );
-      toast.success(res.message || 'Demo data added');
-      if (res.demo) {
-        toast.message(`Demo accounts: ${res.demo.adminEmail} + ${res.demo.employeeEmail} (password: ${res.demo.password})`);
-      }
-    } catch (e) {
-      toast.error((e as Error).message);
-    } finally {
-      setDemoBusy(null);
-    }
-  }
-
-  async function handleDeleteDemo() {
-    setDemoBusy('delete');
-    try {
-      const res = await apiFetch<{ ok: true; usersDeleted: number; employeesDeleted: number }>(
-        '/settings/demo-data/delete',
-        { method: 'POST', json: {} },
-      );
-      toast.success(`Deleted demo data (users: ${res.usersDeleted}, employees: ${res.employeesDeleted})`);
-    } catch (e) {
-      toast.error((e as Error).message);
-    } finally {
-      setDemoBusy(null);
-      setDemoConfirmOpen(false);
     }
   }
 
@@ -916,8 +880,8 @@ export default function AdminSettingsPage() {
       )}
 
       {activeTab === 'users' && (
-        <div className="grid gap-4 lg:grid-cols-3">
-          <Card className="lg:col-span-2">
+        <div className="grid gap-4">
+          <Card>
             <CardHeader>
               <div className="flex items-center gap-2">
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -925,7 +889,7 @@ export default function AdminSettingsPage() {
                 </div>
                 <div>
                   <CardTitle className="text-lg">User Roles</CardTitle>
-                  <CardDescription>Promote employees to admin or demote admins to employee role.</CardDescription>
+                  <CardDescription>Grant administrator access to an account, or remove it from an account.</CardDescription>
                 </div>
               </div>
             </CardHeader>
@@ -974,61 +938,6 @@ export default function AdminSettingsPage() {
               )}
             </CardContent>
           </Card>
-
-          <Card className="border-border/60">
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-foreground">
-                  <TestTube className="h-4 w-4" />
-                </div>
-                <div>
-                  <CardTitle className="text-base">Demo Data</CardTitle>
-                  <CardDescription>Create or remove 2 demo accounts only.</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">
-                This only affects demo users:\n
-                <div className="mt-2 font-mono text-xs text-foreground/80">
-                  demo.admin@uppearance.demo\n
-                  demo.employee@uppearance.demo
-                </div>
-              </div>
-              <Button className="w-full" disabled={demoBusy !== null} onClick={handleAddDemo}>
-                {demoBusy === 'add' ? 'Adding…' : 'Add demo data'}
-              </Button>
-              <Button
-                className="w-full"
-                variant="outline"
-                disabled={demoBusy !== null}
-                onClick={() => setDemoConfirmOpen(true)}
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete demo data
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Dialog open={demoConfirmOpen} onOpenChange={setDemoConfirmOpen}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Delete demo data?</DialogTitle>
-                <DialogDescription>
-                  This will delete only the 2 demo users and their related demo employee records.\n
-                  Anything created by real users will remain.
-                </DialogDescription>
-              </DialogHeader>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setDemoConfirmOpen(false)} disabled={demoBusy === 'delete'}>
-                  Cancel
-                </Button>
-                <Button onClick={handleDeleteDemo} disabled={demoBusy === 'delete'}>
-                  {demoBusy === 'delete' ? 'Deleting…' : 'Delete demo data'}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
         </div>
       )}
     </div>

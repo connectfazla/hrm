@@ -4,11 +4,12 @@ import * as React from 'react';
 import { useAuth } from '@/components/auth-provider';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
-import { Clock, Coffee, LogIn, LogOut, Play } from 'lucide-react';
+import { Clock, Coffee, LogIn, LogOut, Play, Unplug } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -18,6 +19,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type WorldClock = {
   label: string;
@@ -103,6 +105,15 @@ function useDate() {
   return date;
 }
 
+const DISRUPTION_KINDS = ['POWER_OUTAGE', 'INTERNET_OUTAGE', 'OTHER'] as const;
+type DisruptionKind = (typeof DISRUPTION_KINDS)[number];
+
+const DISRUPTION_LABELS: Record<DisruptionKind, string> = {
+  POWER_OUTAGE: 'Power / electricity cut',
+  INTERNET_OUTAGE: 'Internet outage',
+  OTHER: 'Other (describe)',
+};
+
 export default function ClockPage() {
   const { state, logout } = useAuth();
   const worldTimes = useWorldClocks();
@@ -113,8 +124,13 @@ export default function ClockPage() {
   const [submitting, setSubmitting] = React.useState(false);
   const [activeSession, setActiveSession] = React.useState<{ clockInAt: string; onLunch: boolean; lunchStartAt: string | null } | null>(null);
   const [checkingSession, setCheckingSession] = React.useState(true);
+  const [disruptionOpen, setDisruptionOpen] = React.useState(false);
+  const [disruptionKind, setDisruptionKind] = React.useState<DisruptionKind>('POWER_OUTAGE');
+  const [disruptionDetail, setDisruptionDetail] = React.useState('');
+  const [disruptionSubmitting, setDisruptionSubmitting] = React.useState(false);
 
   const employeeId = state.status === 'authenticated' ? state.user.employeeId : null;
+  const isEmployee = state.status === 'authenticated' && state.user.role === 'EMPLOYEE';
 
   const refreshActiveSession = React.useCallback(async () => {
     if (!employeeId) return;
@@ -192,6 +208,31 @@ export default function ClockPage() {
     setComment('');
   };
 
+  const submitDisruptionLog = async () => {
+    if (disruptionKind === 'OTHER' && disruptionDetail.trim().length < 3) {
+      toast.error('Please add a short description (at least 3 characters).');
+      return;
+    }
+    setDisruptionSubmitting(true);
+    try {
+      await apiFetch('/attendance/disruption-log', {
+        method: 'POST',
+        json: {
+          kind: disruptionKind,
+          detail: disruptionKind === 'OTHER' ? disruptionDetail.trim() : null,
+        },
+      });
+      toast.success('Disruption logged for your record.');
+      setDisruptionOpen(false);
+      setDisruptionKind('POWER_OUTAGE');
+      setDisruptionDetail('');
+    } catch (e) {
+      toast.error((e as Error).message ?? 'Could not log disruption');
+    } finally {
+      setDisruptionSubmitting(false);
+    }
+  };
+
   if (state.status !== 'authenticated') return null;
 
   if (!employeeId) {
@@ -225,9 +266,28 @@ export default function ClockPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Clock</h1>
-        <p className="text-muted-foreground">Track your work hours, take lunch, and end your day.</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Clock</h1>
+          <p className="text-muted-foreground">Track your work hours, take lunch, and end your day.</p>
+        </div>
+        {isEmployee && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 shrink-0 gap-1.5 px-2.5 text-xs font-normal"
+            title="Log an outage or other disruption that affected your work (e.g. power or internet)"
+            onClick={() => {
+              setDisruptionKind('POWER_OUTAGE');
+              setDisruptionDetail('');
+              setDisruptionOpen(true);
+            }}
+          >
+            <Unplug className="h-3.5 w-3.5" aria-hidden />
+            Outage
+          </Button>
+        )}
       </div>
 
       {/* World Clocks */}
@@ -363,6 +423,56 @@ export default function ClockPage() {
             </Button>
             <Button onClick={handleClockOut} disabled={submitting}>
               {submitting ? 'Clocking out…' : 'Clock out'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={disruptionOpen} onOpenChange={setDisruptionOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Log disruption</DialogTitle>
+            <DialogDescription>
+              Use this when something outside your control interrupted work (e.g. electricity or internet). It is saved to
+              your attendance record for HR.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <Label htmlFor="disruption-kind">What happened?</Label>
+              <Select value={disruptionKind} onValueChange={(v) => setDisruptionKind(v as DisruptionKind)}>
+                <SelectTrigger id="disruption-kind" className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {DISRUPTION_KINDS.map((k) => (
+                    <SelectItem key={k} value={k}>
+                      {DISRUPTION_LABELS[k]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {disruptionKind === 'OTHER' && (
+              <div className="space-y-2">
+                <Label htmlFor="disruption-detail">Details</Label>
+                <Textarea
+                  id="disruption-detail"
+                  rows={3}
+                  placeholder="Briefly describe what happened…"
+                  value={disruptionDetail}
+                  onChange={(e) => setDisruptionDetail(e.target.value)}
+                  className="min-h-[4.5rem] resize-none"
+                />
+              </div>
+            )}
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" size="sm" onClick={() => setDisruptionOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="button" size="sm" onClick={() => void submitDisruptionLog()} disabled={disruptionSubmitting}>
+              {disruptionSubmitting ? 'Saving…' : 'Save log'}
             </Button>
           </DialogFooter>
         </DialogContent>

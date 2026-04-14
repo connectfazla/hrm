@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, Table
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
+import { filterOutLegacyDemoEmployees } from '@/lib/legacy-demo-employees';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Banknote, Download, Play, Clock, FileText, Users, PlusCircle, MinusCircle, Trash2, ChevronDown, ChevronRight, Search } from 'lucide-react';
@@ -54,6 +55,7 @@ type EmployeeRow = {
   id: string;
   fullName: string;
   department: string;
+  workEmail?: string | null;
   compensation?: Compensation;
 };
 
@@ -136,8 +138,9 @@ export default function AdminPayrollPage() {
     (async () => {
       try {
         const { employees } = await apiFetch<{ employees: EmployeeRow[] }>('/employees');
+        const staff = filterOutLegacyDemoEmployees(employees ?? []);
         const rows: PreviewRow[] = await Promise.all(
-          (employees ?? []).map(async (emp) => {
+          staff.map(async (emp) => {
             const base = Number(emp.compensation?.baseSalary ?? 0);
             const allow = Number(emp.compensation?.allowances ?? 0);
             let deductions = 0;
@@ -260,8 +263,9 @@ export default function AdminPayrollPage() {
   const exportPdf = async () => {
     try {
       const { employees } = await apiFetch<{ employees: EmployeeRow[] }>('/employees');
+      const staff = filterOutLegacyDemoEmployees(employees ?? []);
       let downloaded = 0;
-      for (const emp of employees ?? []) {
+      for (const emp of staff) {
         const res = await fetch(`${API_BASE}/payroll/${emp.id}/${month}/payslip.pdf`, {
           credentials: 'include',
         });

@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
+import { filterOutLegacyDemoEmployees } from '@/lib/legacy-demo-employees';
 import Link from 'next/link';
 import {
   Users,
@@ -93,7 +94,7 @@ export default function AdminDashboard() {
     ])
       .then(([sum, empRes, leaveRes]) => {
         setSummary(sum);
-        setEmployees(empRes.employees);
+        setEmployees(filterOutLegacyDemoEmployees(empRes.employees ?? []));
         setPendingLeaves(leaveRes.leaveRequests);
       })
       .catch(() => toast.error('Failed to load dashboard'))

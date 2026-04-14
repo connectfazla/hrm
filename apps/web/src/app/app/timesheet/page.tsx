@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
+import { filterOutLegacyDemoEmployees } from '@/lib/legacy-demo-employees';
 import { Download, FileSpreadsheet, Clock, Coffee } from 'lucide-react';
 
 type WorkSession = {
@@ -22,7 +23,7 @@ type WorkSession = {
   workComment: string | null;
   lunches: { startAt: string; endAt: string | null; durationMinutes: number }[];
 };
-type EmployeeOption = { id: string; fullName: string };
+type EmployeeOption = { id: string; fullName: string; workEmail?: string | null };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000/api/v1';
 
@@ -66,9 +67,13 @@ export default function TimesheetPage() {
     if (!isAdmin) return;
     apiFetch<{ employees: EmployeeOption[] }>('/employees')
       .then((res) => {
-        const list = res.employees ?? [];
+        const list = filterOutLegacyDemoEmployees(res.employees ?? []);
         setEmployees(list);
-        if (!selectedEmployeeId && list[0]?.id) setSelectedEmployeeId(list[0].id);
+        setSelectedEmployeeId((prev) => {
+          if (list.length === 0) return '';
+          if (!prev || !list.some((e) => e.id === prev)) return list[0]!.id;
+          return prev;
+        });
       })
       .catch(() => toast.error('Failed to load employees for timesheet'));
   }, [isAdmin, selectedEmployeeId]);

@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
+import { filterOutLegacyDemoEmployees } from '@/lib/legacy-demo-employees';
 import Link from 'next/link';
 import { Plus, Search } from 'lucide-react';
 
@@ -31,7 +32,7 @@ export default function EmployeesPage() {
 
   React.useEffect(() => {
     apiFetch<{ employees: Employee[] }>('/employees')
-      .then((res) => setEmployees(res.employees))
+      .then((res) => setEmployees(filterOutLegacyDemoEmployees(res.employees ?? [])))
       .catch(() => toast.error('Failed to load employees'))
       .finally(() => setLoading(false));
   }, []);

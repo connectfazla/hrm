@@ -68,6 +68,12 @@ enum NotificationType {
   MESSAGE
 }
 
+enum AttendanceDisruptionKind {
+  POWER_OUTAGE
+  INTERNET_OUTAGE
+  OTHER
+}
+
 enum PayrollDeductionKind {
   UNPAID_LEAVE
   PROBATION_LEAVE
@@ -172,6 +178,7 @@ model Employee {
   emergencyContact EmergencyContact?
 
   workSessions WorkSession[]
+  attendanceDisruptions AttendanceDisruption[]
   leaveRequests LeaveRequest[]
   leaveAccrualEvents LeaveAccrualEvent[]
 
@@ -272,11 +279,31 @@ model WorkSession {
   workComment String?
 
   lunches LunchBreak[]
+  disruptions AttendanceDisruption[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([employeeId, clockInAt])
+}
+
+model AttendanceDisruption {
+  id String @id @default(uuid()) @db.Uuid
+
+  employeeId String @db.Uuid
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  kind AttendanceDisruptionKind
+  detail String?
+
+  workSessionId String? @db.Uuid
+  workSession WorkSession? @relation(fields: [workSessionId], references: [id], onDelete: SetNull)
+
+  recordedAt DateTime @default(now())
+
+  createdAt DateTime @default(now())
+
+  @@index([employeeId, recordedAt])
 }
 
 model LunchBreak {

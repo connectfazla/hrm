@@ -1,5 +1,11 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException, ServiceUnavailableException } from "@nestjs/common";
-import { Role } from "@prisma/client";
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  ServiceUnavailableException,
+} from "@nestjs/common";
+import { AttendanceDisruptionKind, Role } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import PDFDocument from "pdfkit";
 
@@ -182,6 +188,24 @@ export class AttendanceService {
     });
 
     return updated;
+  }
+
+  async recordDisruption(employeeId: string, kind: AttendanceDisruptionKind, detail: string | null, now: Date) {
+    const activeSession = await this.prisma.workSession.findFirst({
+      where: { employeeId, clockOutAt: null },
+      orderBy: { clockInAt: "desc" },
+      select: { id: true },
+    });
+
+    return this.prisma.attendanceDisruption.create({
+      data: {
+        employeeId,
+        kind,
+        detail,
+        workSessionId: activeSession?.id ?? null,
+        recordedAt: now,
+      },
+    });
   }
 
   async getSessions(

@@ -14,6 +14,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
+import { filterOutLegacyDemoEmployees } from '@/lib/legacy-demo-employees';
 import { Check, X, CalendarDays, Clock, Search, Users } from 'lucide-react';
 
 type LeaveRequest = {
@@ -32,6 +33,7 @@ type Employee = {
   id: string;
   fullName: string;
   department?: string;
+  workEmail?: string | null;
 };
 
 type LeaveBalance = {
@@ -131,9 +133,10 @@ export default function AdminLeavePage() {
     setBalancesLoading(true);
     apiFetch<{ employees: Employee[] }>('/employees')
       .then(async (res) => {
-        setEmployees(res.employees);
+        const staff = filterOutLegacyDemoEmployees(res.employees ?? []);
+        setEmployees(staff);
         const results = await Promise.allSettled(
-          res.employees.map((emp) =>
+          staff.map((emp) =>
             apiFetch<{ balances: LeaveBalance }>(`/leave/balances/${emp.id}`).then((r) => ({
               id: emp.id,
               balances: r.balances,

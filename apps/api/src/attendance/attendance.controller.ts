@@ -5,11 +5,30 @@ import { AccessTokenGuard } from "../auth/guards/access-token.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
 import { Roles } from "../auth/decorators/roles.decorator";
 import { Role } from "@prisma/client";
+import { AttendanceDisruptionKind } from "@prisma/client";
 import { AttendanceService } from "./attendance.service";
 
 const clockOutSchema = z.object({
   comment: z.string().min(5),
 });
+
+const disruptionLogSchema = z
+  .object({
+    kind: z.nativeEnum(AttendanceDisruptionKind),
+    detail: z.string().max(500).optional().nullable(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.kind === AttendanceDisruptionKind.OTHER) {
+      const t = (data.detail ?? "").trim();
+      if (t.length < 3) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Please describe the disruption (at least 3 characters).",
+          path: ["detail"],
+        });
+      }
+    }
+  });
 
 const updateSessionSchema = z.object({
   clockInAt: z.string().datetime(),
@@ -56,6 +75,32 @@ export class AttendanceController {
     if (!employeeId) return res.status(403).json({ message: "No employee profile linked to your account. Please log out and log back in." });
     const lunch = await this.attendance.lunchStart(employeeId, new Date());
     return res.json({ lunch });
+  }
+
+  @UseGuards(AccessTokenGuard)
+  @Post("attendance/disruption-log")
+  async logDisruption(
+    @Req() req: RequestWithUser,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const employeeId = req.user?.employeeId;
+    if (!employeeId) {
+      return res.status(403).json({ message: "No employee profile linked to your account. Please log out and log back in." });
+    }
+
+    const parsed = disruptionLogSchema.safeParse(body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: "Invalid disruption payload" });
+    }
+
+    const row = await this.attendance.recordDisruption(
+      employeeId,
+      parsed.data.kind,
+      parsed.data.detail?.trim() ? parsed.data.detail.trim() : null,
+      new Date(),
+    );
+    return res.json({ disruption: row });
   }
 
   @UseGuards(AccessTokenGuard)

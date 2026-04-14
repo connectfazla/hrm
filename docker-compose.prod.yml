@@ -1,6 +1,7 @@
 # Production stack. Postgres data lives in named volume `pg_data` (survives image rebuilds and
-# `docker compose down` unless you use `down -v`). The `migrate` job runs **migrations only** —
-# it does not seed, so routine deploys never reload demo data.
+# `docker compose down` unless you use `down -v`). The `migrate` job uses profile **setup** and runs
+# **migrations only** — never demo data. Sample data is opt-in via profile **demo** (`seed` service) only;
+# `git pull` and `migrate` never invoke the seed script.
 
 x-migrate-env: &migrate_env
   build:
@@ -79,14 +80,13 @@ services:
     profiles:
       - setup
 
-  # Optional — **once** on a brand-new empty database if you want demo users and default site settings.
-  # Do not run on routine updates; seed resets admin password to the repo default and repopulates sample HR data.
+  # Optional demo dataset — NOT part of profile "setup". Use only when you intentionally want seed users/HR rows.
   seed:
     <<: *migrate_env
     command: >
       sh -c "npx prisma db seed"
     profiles:
-      - setup
+      - demo
 
 volumes:
   pg_data:

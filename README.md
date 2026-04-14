@@ -171,7 +171,7 @@ docker compose -f docker-compose.prod.yml up -d
 
 **Database persistence:** Postgres stores data in the Docker volume `pg_data`. Rebuilding images (`build --no-cache`) does not remove it. Avoid `docker compose down -v`, which deletes named volumes and wipes the database.
 
-**Migrations vs seed:** The `migrate` service runs `prisma migrate deploy` only. Demo/sample data comes from `prisma db seed` — use the separate `seed` service **once** on an empty database if you want the bundled demo users; do **not** run seed on every deploy (it resets the seeded admin password and reapplies sample records).
+**Migrations vs seed:** `git pull` only updates code — it never runs Prisma or loads data. The **`migrate`** service (profile **`setup`**) runs `prisma migrate deploy` only. Bundled demo users and sample HR rows exist only if someone explicitly runs **`prisma db seed`** (e.g. local dev) or Compose profile **`demo`** — that profile is separate from **`setup`**, so a normal deploy (`--profile setup run migrate`) **cannot** import demo data by mistake.
 
 Example routine update (after `git pull`):
 
@@ -182,10 +182,10 @@ docker compose --profile setup -f docker-compose.prod.yml run --rm migrate
 docker compose -f docker-compose.prod.yml up -d
 ```
 
-First-time demo data (optional, one-time):
+Optional demo dataset (local/staging only — **do not** use on a production DB you care about):
 
 ```bash
-docker compose --profile setup -f docker-compose.prod.yml run --rm seed
+docker compose --profile demo -f docker-compose.prod.yml run --rm seed
 ```
 
 ## Currency

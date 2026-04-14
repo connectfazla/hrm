@@ -11,6 +11,7 @@ import {
 import bcrypt from "bcrypt";
 import { mergeEmailTemplates } from "../src/mail/email-template-defaults";
 
+/** Demo data only — runs when you explicitly execute `prisma db seed` (or Compose `--profile demo`). Never invoked by `git pull` or `migrate deploy`. */
 const prisma = new PrismaClient();
 
 /** Former multi-employee seed accounts — removed so re-seed leaves only admin + Fazla Rabbi. */

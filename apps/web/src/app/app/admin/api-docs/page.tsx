@@ -30,7 +30,8 @@ const CATEGORIES: Category[] = [
       {
         method: 'POST',
         path: '/auth/register',
-        description: 'Create a new user account (requires registrationCode matching REGISTRATION_CODE, default upp).',
+        description:
+          'Create a new EMPLOYEE account (registrationCode must match REGISTRATION_CODE, default upp). Admins promote users via PUT /employees/:id/role; use prisma seed for the first admin account.',
         auth: 'Public',
       },
       { method: 'POST', path: '/auth/refresh', description: 'Rotate tokens using a refresh cookie.', auth: 'Refresh cookie' },

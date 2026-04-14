@@ -9,6 +9,7 @@ import {
   NotificationType,
 } from "@prisma/client";
 import bcrypt from "bcrypt";
+import { mergeEmailTemplates } from "../src/mail/email-template-defaults";
 
 const prisma = new PrismaClient();
 
@@ -635,28 +636,7 @@ async function seed() {
     workday_start: "09:00",
     late_grace_minutes: 5,
     smtp: { host: "localhost", port: 1025, username: "", password: "", tls: false },
-    email_templates: {
-      leave_approved: {
-        subject: "Leave Approved - {{leave_type}}",
-        body: "Dear {{employee_name}},\n\nYour {{leave_type}} leave from {{start_date}} to {{end_date}} has been approved.\n\nRegards,\nHR Team",
-      },
-      leave_rejected: {
-        subject: "Leave Rejected - {{leave_type}}",
-        body: "Dear {{employee_name}},\n\nYour {{leave_type}} leave from {{start_date}} to {{end_date}} has been rejected.\n\nPlease contact HR for details.\n\nRegards,\nHR Team",
-      },
-      salary_changed: {
-        subject: "Salary Update",
-        body: "Dear {{employee_name}},\n\nYour salary has been updated to {{salary_amount}} effective immediately.\n\nRegards,\nHR Team",
-      },
-      document_expiry: {
-        subject: "Document Expiring - {{document_name}}",
-        body: "Dear {{employee_name}},\n\nYour document '{{document_name}}' will expire on {{expiry_date}}. Please submit an updated copy.\n\nRegards,\nHR Team",
-      },
-      welcome_employee: {
-        subject: "Welcome to Uppearance!",
-        body: "Dear {{employee_name}},\n\nWelcome to the team! Your account has been set up. Please log in at the HR portal to review your details.\n\nRegards,\nHR Team",
-      },
-    },
+    email_templates: mergeEmailTemplates(null),
   };
 
   for (const [key, value] of Object.entries(defaultSettings)) {

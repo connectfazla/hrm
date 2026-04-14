@@ -3,6 +3,8 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
 import crypto from "node:crypto";
+import { Role } from "@prisma/client";
+import { buildPasswordResetEmail } from "../mail/password-reset-email";
 import { PrismaService } from "../prisma/prisma.service";
 
 type LoginResult = {
@@ -79,7 +81,7 @@ export class AuthService {
       const employee = await this.prisma.employee.create({
         data: {
           fullName,
-          jobTitle: "Administrator",
+          jobTitle: "Employee",
           department: companyName,
           dateOfBirth: new Date("1990-01-01"),
           nationality: "UAE",
@@ -98,7 +100,7 @@ export class AuthService {
       });
 
       const user = await this.prisma.user.create({
-        data: { email, passwordHash, role: "ADMIN", employeeId: employee.id },
+        data: { email, passwordHash, role: Role.EMPLOYEE, employeeId: employee.id },
       });
 
       const accessToken = this.signAccessToken(user);
@@ -342,19 +344,17 @@ export class AuthService {
       throw this.mapDbError(e);
     }
 
-    const resetUrl = `${process.env.APP_BASE_URL ?? "http://localhost:4000"}/reset-password?token=${encodeURIComponent(
-      resetToken,
-    )}`;
+    const appBase =
+      process.env.APP_BASE_URL ?? process.env.WEB_PUBLIC_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    const resetUrl = `${appBase.replace(/\/$/, "")}/reset-password?token=${encodeURIComponent(resetToken)}`;
+    const expiresMinutes = 15;
+    const { subject, text } = buildPasswordResetEmail({ resetUrl, expiresMinutes });
 
     await this.mailer.sendMail({
       from: process.env.SMTP_FROM ?? "Uppearance HRMS <hrms@uppearance.local>",
       to: user.email,
-      subject: "Uppearance HRMS - Password reset",
-      text:
-        `Hello,\n\n` +
-        `You requested a password reset. Use the link below within 15 minutes:\n\n` +
-        `${resetUrl}\n\n` +
-        `If you didn't request this, you can ignore this email.\n`,
+      subject,
+      text,
     });
   }
 

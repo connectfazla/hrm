@@ -58,7 +58,7 @@ export default function RegisterPage() {
       });
       setUser(res.user);
       toast.success('Account created — welcome to Uppearance!');
-      router.push('/app/admin');
+      router.push(res.user.role === 'ADMIN' ? '/app/admin' : '/app');
     } catch (e) {
       toast.error((e as Error).message);
     }
@@ -75,7 +75,9 @@ export default function RegisterPage() {
         <Card className="shadow-xl shadow-black/5 border-border/50">
           <CardHeader className="text-center pb-4">
             <CardTitle className="text-2xl">Create your account</CardTitle>
-            <CardDescription className="text-base">Set up your company&apos;s HR workspace</CardDescription>
+            <CardDescription className="text-base">
+              Join your company&apos;s HR workspace. Admin access is granted by an existing administrator.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
@@ -101,7 +103,7 @@ export default function RegisterPage() {
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="registrationCode">Admin access code</Label>
+                <Label htmlFor="registrationCode">Registration code</Label>
                 <Input
                   id="registrationCode"
                   type="password"

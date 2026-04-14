@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
+import { mergeEmailTemplates } from '@/lib/email-template-defaults';
 import { filterOutLegacyDemoEmployees } from '@/lib/legacy-demo-employees';
 import { useAuth } from '@/components/auth-provider';
 import {
@@ -72,13 +73,13 @@ const TEMPLATE_DEFS = [
 ] as const;
 
 const ALL_PLACEHOLDERS =
-  '{{employee_name}}, {{leave_type}}, {{start_date}}, {{end_date}}, {{salary_amount}}, {{document_name}}, {{expiry_date}}';
+  '{{employee_name}}, {{leave_type}}, {{start_date}}, {{end_date}}, {{admin_comment}}, {{salary_amount}}, {{document_name}}, {{expiry_date}}';
 
 function placeholdersForTemplate(id: string): string {
   switch (id) {
     case 'leave_approved':
     case 'leave_rejected':
-      return '{{employee_name}}, {{leave_type}}, {{start_date}}, {{end_date}}';
+      return '{{employee_name}}, {{leave_type}}, {{start_date}}, {{end_date}}, {{admin_comment}}';
     case 'salary_changed':
       return '{{employee_name}}, {{salary_amount}}';
     case 'document_expiry':
@@ -88,30 +89,6 @@ function placeholdersForTemplate(id: string): string {
     default:
       return ALL_PLACEHOLDERS;
   }
-}
-
-function emptyTemplates(): Record<string, TemplateEntry> {
-  return Object.fromEntries(TEMPLATE_DEFS.map((t) => [t.id, { subject: '', body: '' }])) as Record<
-    string,
-    TemplateEntry
-  >;
-}
-
-function parseTemplates(raw: unknown): Record<string, TemplateEntry> {
-  const base = emptyTemplates();
-  if (!raw || typeof raw !== 'object') return base;
-  const o = raw as Record<string, unknown>;
-  for (const t of TEMPLATE_DEFS) {
-    const v = o[t.id];
-    if (v && typeof v === 'object' && v !== null) {
-      const e = v as Record<string, unknown>;
-      base[t.id] = {
-        subject: typeof e.subject === 'string' ? e.subject : '',
-        body: typeof e.body === 'string' ? e.body : '',
-      };
-    }
-  }
-  return base;
 }
 
 function parseSmtp(raw: unknown): SmtpForm {
@@ -171,7 +148,7 @@ export default function AdminSettingsPage() {
   const [smtpSaving, setSmtpSaving] = React.useState(false);
   const [smtpTesting, setSmtpTesting] = React.useState(false);
 
-  const [templates, setTemplates] = React.useState<Record<string, TemplateEntry>>(emptyTemplates());
+  const [templates, setTemplates] = React.useState<Record<string, TemplateEntry>>(() => mergeEmailTemplates(null));
   const [templatesSaving, setTemplatesSaving] = React.useState(false);
 
   const [apiKeys, setApiKeys] = React.useState<ApiKeyRow[]>([]);
@@ -226,7 +203,7 @@ export default function AdminSettingsPage() {
         setWorkdayStart(String(data.workday_start ?? '09:00'));
         setLateGraceMinutes(String(data.late_grace_minutes ?? '15'));
         setSmtp(parseSmtp(data.smtp));
-        setTemplates(parseTemplates(data.email_templates));
+        setTemplates(mergeEmailTemplates(data.email_templates ?? null));
         if (typeof data.company_logo === 'string') setCompanyLogo(data.company_logo);
       })
       .catch(() => toast.error('Failed to load settings'))
@@ -261,7 +238,7 @@ export default function AdminSettingsPage() {
     setWorkdayStart(String(data.workday_start ?? '09:00'));
     setLateGraceMinutes(String(data.late_grace_minutes ?? '15'));
     setSmtp(parseSmtp(data.smtp));
-    setTemplates(parseTemplates(data.email_templates));
+    setTemplates(mergeEmailTemplates(data.email_templates ?? null));
     if (typeof data.company_logo === 'string') setCompanyLogo(data.company_logo);
   }, []);
 

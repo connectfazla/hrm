@@ -1,7 +1,12 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import nodemailer from "nodemailer";
-import { PrismaService } from "../prisma/prisma.service";
 import { NotificationType, Role } from "@prisma/client";
+import {
+  applyEmailTemplatePlaceholders,
+  mergeEmailTemplates,
+  type EmailTemplateId,
+} from "../mail/email-template-defaults";
+import { PrismaService } from "../prisma/prisma.service";
 
 @Injectable()
 export class NotificationsService {
@@ -43,6 +48,11 @@ export class NotificationsService {
     await this.mailer.sendMail({ from, to, subject, text });
   }
 
+  private async loadMergedEmailTemplates() {
+    const row = await this.prisma.siteSettings.findUnique({ where: { key: "email_templates" } });
+    return mergeEmailTemplates(row?.value ?? null);
+  }
+
   async notifyAdminsLeavePending(args: {
     employeeId: string;
     leaveRequestId: string;
@@ -77,12 +87,16 @@ export class NotificationsService {
 
     await Promise.all(notifications);
 
-    const subject = "Uppearance HRMS - Leave request pending approval";
+    const subject = "Leave request pending your approval";
     const text =
+      `Hello,\n\n` +
+      `A new leave request needs review in Uppearance HRMS.\n\n` +
       `Employee: ${employee?.fullName ?? args.employeeId}\n` +
       `Leave type: ${args.type}\n` +
-      `Dates: ${args.startDate} to ${args.endDate}\n` +
-      `Request ID: ${args.leaveRequestId}\n`;
+      `Dates: ${args.startDate} through ${args.endDate}\n` +
+      `Request ID: ${args.leaveRequestId}\n\n` +
+      `Please sign in to the admin dashboard to approve or reject this request.\n\n` +
+      `— Uppearance HRMS\n`;
 
     await Promise.all(
       admins
@@ -128,14 +142,24 @@ export class NotificationsService {
       },
     });
 
-    // Email notifications for leave decisions.
     if (employeeUser.email) {
-      const subject = `Uppearance HRMS - ${title}`;
-      await this.email(
-        employeeUser.email,
-        subject,
-        `${body}\n\n${args.adminComment ? `Comment: ${args.adminComment}\n` : ""}`,
-      );
+      const templates = await this.loadMergedEmailTemplates();
+      const templateId: EmailTemplateId = args.decision === "APPROVED" ? "leave_approved" : "leave_rejected";
+      const t = templates[templateId];
+      const employee = await this.prisma.employee.findUnique({
+        where: { id: args.employeeId },
+        select: { fullName: true },
+      });
+      const vars: Record<string, string> = {
+        employee_name: employee?.fullName?.trim() || "Team member",
+        leave_type: args.type,
+        start_date: args.startDate,
+        end_date: args.endDate,
+        admin_comment: args.adminComment?.trim() ? `Note from HR: ${args.adminComment.trim()}` : "",
+      };
+      const subject = applyEmailTemplatePlaceholders(t.subject, vars);
+      const textBody = applyEmailTemplatePlaceholders(t.body, vars);
+      await this.email(employeeUser.email, subject, textBody);
     }
   }
 

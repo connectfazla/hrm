@@ -1,5 +1,6 @@
 import { Injectable, UnauthorizedException } from "@nestjs/common";
 import bcrypt from "bcrypt";
+import { mergeEmailTemplates } from "../mail/email-template-defaults";
 import { PrismaService } from "../prisma/prisma.service";
 
 /** Public schema tables managed by this app (excludes `_prisma_migrations`). Order does not matter for TRUNCATE … CASCADE. */
@@ -47,6 +48,7 @@ export class SettingsService {
     const rows = await this.prisma.siteSettings.findMany();
     const result: Record<string, any> = {};
     for (const r of rows) result[r.key] = r.value;
+    result.email_templates = mergeEmailTemplates(result.email_templates ?? null);
     return result;
   }
 

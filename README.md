@@ -169,6 +169,25 @@ cp .env.production.example .env.production
 docker compose -f docker-compose.prod.yml up -d
 ```
 
+**Database persistence:** Postgres stores data in the Docker volume `pg_data`. Rebuilding images (`build --no-cache`) does not remove it. Avoid `docker compose down -v`, which deletes named volumes and wipes the database.
+
+**Migrations vs seed:** The `migrate` service runs `prisma migrate deploy` only. Demo/sample data comes from `prisma db seed` — use the separate `seed` service **once** on an empty database if you want the bundled demo users; do **not** run seed on every deploy (it resets the seeded admin password and reapplies sample records).
+
+Example routine update (after `git pull`):
+
+```bash
+docker compose -f docker-compose.prod.yml build api web
+docker compose -f docker-compose.prod.yml up -d postgres
+docker compose --profile setup -f docker-compose.prod.yml run --rm migrate
+docker compose -f docker-compose.prod.yml up -d
+```
+
+First-time demo data (optional, one-time):
+
+```bash
+docker compose --profile setup -f docker-compose.prod.yml run --rm seed
+```
+
 ## Currency
 
 All monetary values are in **AED** (UAE Dirham).

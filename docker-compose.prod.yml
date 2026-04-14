@@ -1,3 +1,18 @@
+# Production stack. Postgres data lives in named volume `pg_data` (survives image rebuilds and
+# `docker compose down` unless you use `down -v`). The `migrate` job runs **migrations only** —
+# it does not seed, so routine deploys never reload demo data.
+
+x-migrate-env: &migrate_env
+  build:
+    context: .
+    dockerfile: apps/api/Dockerfile
+    target: build
+  depends_on:
+    postgres:
+      condition: service_healthy
+  environment:
+    DATABASE_URL: postgresql://${DB_USER:-uppearance}:${DB_PASSWORD:-uppearance}@postgres:5432/${DB_NAME:-uppearance_hrms}
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -55,19 +70,20 @@ services:
     ports:
       - "${WEB_PORT:-3000}:3000"
 
-  # Run migrations + seed (one-off, uses build stage which has all deps)
+  # Run on every deploy: applies pending migrations only (never touches existing rows beyond what migrations define).
   migrate:
-    build:
-      context: .
-      dockerfile: apps/api/Dockerfile
-      target: build
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      DATABASE_URL: postgresql://${DB_USER:-uppearance}:${DB_PASSWORD:-uppearance}@postgres:5432/${DB_NAME:-uppearance_hrms}
+    <<: *migrate_env
     command: >
-      sh -c "npx prisma migrate deploy && npx prisma db seed"
+      sh -c "npx prisma migrate deploy"
+    profiles:
+      - setup
+
+  # Optional — **once** on a brand-new empty database if you want demo users and default site settings.
+  # Do not run on routine updates; seed resets admin password to the repo default and repopulates sample HR data.
+  seed:
+    <<: *migrate_env
+    command: >
+      sh -c "npx prisma db seed"
     profiles:
       - setup
 

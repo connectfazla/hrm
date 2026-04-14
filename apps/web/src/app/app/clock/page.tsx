@@ -116,34 +116,41 @@ export default function ClockPage() {
 
   const employeeId = state.status === 'authenticated' ? state.user.employeeId : null;
 
+  const refreshActiveSession = React.useCallback(async () => {
+    if (!employeeId) return;
+    try {
+      const r = await apiFetch<{
+        sessions: Array<{
+          id: string;
+          clockInAt: string;
+          clockOutAt: string | null;
+          lunches: Array<{ startAt: string; endAt: string | null }>;
+        }>;
+      }>(`/attendance/${employeeId}/sessions?limit=1`);
+
+      const s = r.sessions?.[0];
+      if (s && !s.clockOutAt) {
+        const activeLunch = s.lunches?.find((l) => !l.endAt) ?? null;
+        setActiveSession({
+          clockInAt: s.clockInAt,
+          onLunch: Boolean(activeLunch),
+          lunchStartAt: activeLunch?.startAt ?? null,
+        });
+      } else {
+        setActiveSession(null);
+      }
+    } catch {
+      // ignore
+    }
+  }, [employeeId]);
+
   React.useEffect(() => {
     if (!employeeId) {
       setCheckingSession(false);
       return;
     }
-    const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString().slice(0, 10);
-    apiFetch<{
-      sessions: Array<{
-        id: string;
-        clockInAt: string;
-        clockOutAt: string | null;
-        lunches: Array<{ startAt: string; endAt: string | null }>;
-      }>;
-    }>(
-      `/attendance/${employeeId}/sessions?from=${todayStart}&to=${now.toISOString().slice(0, 10)}&limit=1`
-    )
-      .then((r) => {
-        const s = r.sessions?.[0];
-        if (s && !s.clockOutAt) {
-          const activeLunch = s.lunches?.find((l) => !l.endAt) ?? null;
-          const onLunch = Boolean(activeLunch);
-          setActiveSession({ clockInAt: s.clockInAt, onLunch, lunchStartAt: activeLunch?.startAt ?? null });
-        }
-      })
-      .catch(() => {})
-      .finally(() => setCheckingSession(false));
-  }, [employeeId]);
+    refreshActiveSession().finally(() => setCheckingSession(false));
+  }, [employeeId, refreshActiveSession]);
 
   const action = async (endpoint: string, body?: Record<string, unknown>) => {
     setSubmitting(true);
@@ -163,7 +170,13 @@ export default function ClockPage() {
         setActiveSession(null);
       }
     } catch (e) {
-      toast.error((e as Error).message);
+      const msg = (e as Error).message ?? 'Request failed';
+      toast.error(msg);
+      // If the server says you're already clocked in (or lunch already started),
+      // refresh local session state so buttons become usable immediately.
+      if (/already clocked in/i.test(msg) || /lunch already started/i.test(msg) || /no active work session/i.test(msg)) {
+        await refreshActiveSession();
+      }
     } finally {
       setSubmitting(false);
     }

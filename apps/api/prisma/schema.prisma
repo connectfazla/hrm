@@ -171,6 +171,9 @@ model Employee {
 
   notes String?
 
+  // When set, the linked user cannot sign in; HR records are retained (e.g. former employee).
+  archivedAt DateTime?
+
   compensation EmployeeCompensation?
   salaryHistory SalaryHistory[]
 

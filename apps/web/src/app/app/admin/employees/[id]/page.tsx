@@ -14,11 +14,20 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
+import { useAuth } from '@/components/auth-provider';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   ArrowLeft, Download, Edit, Save, X,
   Mail, Phone, Globe, Calendar, Building2, BadgeCheck,
   CreditCard, Landmark, AlertTriangle, UserRound, FileText,
-  TrendingUp, CalendarDays, ClipboardList,
+  TrendingUp, CalendarDays, ClipboardList, Archive, Trash2,
 } from 'lucide-react';
 
 type EmployeeDetail = {
@@ -40,6 +49,7 @@ type EmployeeDetail = {
   probationStatus: string;
   probationEndDate: string;
   notes: string | null;
+  archivedAt?: string | null;
   compensation?: { baseSalary: number | string; allowances: number | string };
   bankAccount?: { bankName: string; accountHolderName: string; iban: string | null; accountNumber: string | null };
   emergencyContact?: { name: string; relation: string; phone: string };
@@ -107,6 +117,7 @@ function InfoRow({ icon: Icon, label, value, children }: { icon?: React.ElementT
 export default function EmployeeDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { state: authState } = useAuth();
   const id = params.id as string;
   const [emp, setEmp] = React.useState<EmployeeDetail | null>(null);
   const [docs, setDocs] = React.useState<DocRecord[]>([]);
@@ -120,6 +131,12 @@ export default function EmployeeDetailPage() {
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState('overview');
+  const [archiveOpen, setArchiveOpen] = React.useState(false);
+  const [deleteOpen, setDeleteOpen] = React.useState(false);
+  const [actionBusy, setActionBusy] = React.useState(false);
+
+  const myEmployeeId = authState.status === 'authenticated' ? authState.user.employeeId : null;
+  const isSelf = Boolean(myEmployeeId && myEmployeeId === id);
 
   React.useEffect(() => {
     apiFetch<{ employee: EmployeeDetail }>(`/employees/${id}`)
@@ -190,6 +207,53 @@ export default function EmployeeDetailPage() {
       toast.error((err as Error).message);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const reloadEmployee = () => {
+    apiFetch<{ employee: EmployeeDetail }>(`/employees/${id}`)
+      .then((r) => setEmp(r.employee))
+      .catch(() => toast.error('Failed to reload employee'));
+  };
+
+  const handleArchive = async () => {
+    setActionBusy(true);
+    try {
+      await apiFetch(`/employees/${id}/archive`, { method: 'POST', json: {} });
+      toast.success('Employee archived — they can no longer sign in. HR records are kept.');
+      setArchiveOpen(false);
+      reloadEmployee();
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
+  const handleUnarchive = async () => {
+    setActionBusy(true);
+    try {
+      await apiFetch(`/employees/${id}/unarchive`, { method: 'POST', json: {} });
+      toast.success('Employee unarchived — they can sign in again.');
+      reloadEmployee();
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setActionBusy(true);
+    try {
+      await apiFetch(`/employees/${id}`, { method: 'DELETE' });
+      toast.success('Employee and related data removed.');
+      setDeleteOpen(false);
+      router.push('/app/admin/employees');
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setActionBusy(false);
     }
   };
 
@@ -311,20 +375,96 @@ export default function EmployeeDetailPage() {
           </Avatar>
           <div>
             <h1 className="text-2xl font-bold tracking-tight">{emp.fullName}</h1>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
               <span>{emp.jobTitle}</span>
               <span>&middot;</span>
               <span>{emp.department}</span>
               <Badge variant={emp.probationStatus === 'CONFIRMED' ? 'success' : 'warning'} className="ml-1">
                 {emp.probationStatus === 'CONFIRMED' ? 'Confirmed' : 'Probation'}
               </Badge>
+              {emp.archivedAt && (
+                <Badge variant="secondary" className="ml-1 border-amber-300 bg-amber-50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
+                  Archived
+                </Badge>
+              )}
             </div>
+            {emp.archivedAt && (
+              <p className="mt-2 max-w-xl text-xs text-muted-foreground">
+                This person is treated as no longer active: they cannot log in, but attendance, leave, payslips, and documents stay in the system.
+              </p>
+            )}
           </div>
         </div>
-        <Button onClick={() => setEditing(true)}>
-          <Edit className="mr-2 h-4 w-4" />Edit
-        </Button>
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+          <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+            <Edit className="mr-2 h-4 w-4" />Edit
+          </Button>
+          {!isSelf && (
+            <>
+              {emp.archivedAt ? (
+                <Button variant="outline" size="sm" disabled={actionBusy} onClick={() => void handleUnarchive()}>
+                  <Archive className="mr-2 h-4 w-4" />
+                  Unarchive
+                </Button>
+              ) : (
+                <Button variant="outline" size="sm" disabled={actionBusy} onClick={() => setArchiveOpen(true)}>
+                  <Archive className="mr-2 h-4 w-4" />
+                  Archive
+                </Button>
+              )}
+              <Button variant="destructive" size="sm" disabled={actionBusy} onClick={() => setDeleteOpen(true)}>
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </Button>
+            </>
+          )}
+        </div>
       </div>
+      {isSelf && (
+        <p className="text-xs text-muted-foreground">
+          You cannot archive or delete your own employee record from this page.
+        </p>
+      )}
+
+      <Dialog open={archiveOpen} onOpenChange={setArchiveOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Archive this employee?</DialogTitle>
+            <DialogDescription>
+              They will be signed out and unable to log in until you unarchive them. All HR data (timesheets, leave, payroll,
+              documents) stays in the database—use this when someone leaves the company.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" size="sm" onClick={() => setArchiveOpen(false)} disabled={actionBusy}>
+              Cancel
+            </Button>
+            <Button type="button" size="sm" onClick={() => void handleArchive()} disabled={actionBusy}>
+              {actionBusy ? 'Archiving…' : 'Archive employee'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Permanently delete this employee?</DialogTitle>
+            <DialogDescription>
+              This removes their user account and employee record. Related data that is stored only on this employee (sessions,
+              leave, payslips, documents, etc.) is deleted with them. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" size="sm" onClick={() => setDeleteOpen(false)} disabled={actionBusy}>
+              Cancel
+            </Button>
+            <Button type="button" variant="destructive" size="sm" onClick={() => void handleDelete()} disabled={actionBusy}>
+              {actionBusy ? 'Deleting…' : 'Delete permanently'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Quick Stats */}
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">

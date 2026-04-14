@@ -48,6 +48,10 @@ const CATEGORIES: Category[] = [
       { method: 'GET', path: '/employees/:id', description: 'Get a single employee by ID.', auth: 'Authenticated' },
       { method: 'POST', path: '/employees', description: 'Create an employee record.', auth: 'Admin / HR' },
       { method: 'PUT', path: '/employees/:id', description: 'Update an employee by ID.', auth: 'Admin / HR' },
+      { method: 'PUT', path: '/employees/:id/role', description: 'Set linked user role (ADMIN or EMPLOYEE).', auth: 'Admin / HR' },
+      { method: 'POST', path: '/employees/:id/archive', description: 'Archive employee: revoke sessions, block login, retain HR data.', auth: 'Admin / HR' },
+      { method: 'POST', path: '/employees/:id/unarchive', description: 'Allow an archived employee to sign in again.', auth: 'Admin / HR' },
+      { method: 'DELETE', path: '/employees/:id', description: 'Permanently delete employee, user account, and related data.', auth: 'Admin / HR' },
     ],
   },
   {

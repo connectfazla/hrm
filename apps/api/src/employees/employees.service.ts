@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import bcrypt from "bcrypt";
 import { Role, EmploymentType, ProbationStatus, DocumentCategory } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
@@ -112,6 +112,7 @@ export class EmployeesService {
         employmentType: true,
         probationStatus: true,
         probationEndDate: true,
+        archivedAt: true,
 
         // Admin-only field: intentionally omitted for employees.
 
@@ -171,6 +172,7 @@ export class EmployeesService {
               employmentType: true,
               probationStatus: true,
               probationEndDate: true,
+              archivedAt: true,
 
               compensation: true,
               bankAccount: true,
@@ -430,6 +432,99 @@ export class EmployeesService {
 
       return updated;
     });
+  }
+
+  async archiveEmployee(employeeId: string, actorUserId: string, actorEmployeeId: string | null) {
+    if (actorEmployeeId && actorEmployeeId === employeeId) {
+      throw new BadRequestException("You cannot archive your own employee record.");
+    }
+
+    const emp = await this.prisma.employee.findUnique({
+      where: { id: employeeId },
+      include: { user: { select: { id: true } } },
+    });
+    if (!emp) throw new NotFoundException("Employee not found");
+    if (emp.archivedAt) throw new BadRequestException("Employee is already archived.");
+
+    const now = new Date();
+    await this.prisma.$transaction(async (tx) => {
+      await tx.employee.update({
+        where: { id: employeeId },
+        data: { archivedAt: now },
+      });
+      if (emp.user) {
+        await tx.refreshToken.updateMany({
+          where: { userId: emp.user.id, revokedAt: null },
+          data: { revokedAt: now },
+        });
+      }
+      await tx.auditLog.create({
+        data: {
+          actorUserId,
+          action: "ARCHIVE",
+          entityType: "Employee",
+          entityId: employeeId,
+          after: { archivedAt: now.toISOString() },
+        },
+      });
+    });
+
+    return { ok: true as const, archivedAt: now.toISOString() };
+  }
+
+  async unarchiveEmployee(employeeId: string, actorUserId: string) {
+    const emp = await this.prisma.employee.findUnique({ where: { id: employeeId } });
+    if (!emp) throw new NotFoundException("Employee not found");
+    if (!emp.archivedAt) throw new BadRequestException("Employee is not archived.");
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.employee.update({
+        where: { id: employeeId },
+        data: { archivedAt: null },
+      });
+      await tx.auditLog.create({
+        data: {
+          actorUserId,
+          action: "UNARCHIVE",
+          entityType: "Employee",
+          entityId: employeeId,
+          after: { archivedAt: null },
+        },
+      });
+    });
+
+    return { ok: true as const };
+  }
+
+  async deleteEmployee(employeeId: string, actorUserId: string, actorEmployeeId: string | null) {
+    if (actorEmployeeId && actorEmployeeId === employeeId) {
+      throw new BadRequestException("You cannot delete your own employee record.");
+    }
+
+    const emp = await this.prisma.employee.findUnique({
+      where: { id: employeeId },
+      include: { user: { select: { id: true, email: true } } },
+    });
+    if (!emp) throw new NotFoundException("Employee not found");
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.auditLog.create({
+        data: {
+          actorUserId,
+          action: "DELETE",
+          entityType: "Employee",
+          entityId: employeeId,
+          before: { fullName: emp.fullName, workEmail: emp.workEmail },
+        },
+      });
+
+      if (emp.user) {
+        await tx.user.delete({ where: { id: emp.user.id } });
+      }
+      await tx.employee.delete({ where: { id: employeeId } });
+    });
+
+    return { ok: true as const };
   }
 }
 

@@ -151,6 +151,10 @@ export class AuthService {
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) throw new UnauthorizedException("Invalid email or password");
 
+    if (user.employee?.archivedAt) {
+      throw new UnauthorizedException("This account has been archived. Contact HR if you need access.");
+    }
+
     // Access token includes employeeId so RBAC/self-scoping can be enforced in controllers.
     const accessToken = this.signAccessToken(user);
 
@@ -246,8 +250,20 @@ export class AuthService {
       throw new UnauthorizedException("Session expired due to inactivity");
     }
 
-    // Rotate refresh token.
     const user = stored.user;
+    if (user.employee?.archivedAt) {
+      try {
+        await this.prisma.refreshToken.update({
+          where: { id: stored.id },
+          data: { revokedAt: now },
+        });
+      } catch (e) {
+        throw this.mapDbError(e);
+      }
+      throw new UnauthorizedException("This account has been archived.");
+    }
+
+    // Rotate refresh token.
     try {
       await this.prisma.refreshToken.update({
         where: { id: stored.id },

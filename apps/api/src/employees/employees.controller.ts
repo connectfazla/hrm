@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Param, Post, Put, Req, Res, UseGuards } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Delete, Get, Param, Post, Put, Req, Res, UseGuards } from "@nestjs/common";
 import { z } from "zod";
 import type { Response, Request } from "express";
 import { AccessTokenGuard } from "../auth/guards/access-token.guard";
@@ -127,6 +127,33 @@ export class EmployeesController {
 
     await this.prisma.user.update({ where: { id: user.id }, data: { role: parsed.data.role as Role } });
     return res.json({ message: "Role updated", role: parsed.data.role });
+  }
+
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Post(":id/archive")
+  async archive(@Param("id") id: string, @Req() req: RequestWithUser, @Res({ passthrough: true }) res: Response) {
+    const actor = req.user!;
+    const result = await this.employees.archiveEmployee(id, actor.userId, actor.employeeId ?? null);
+    return res.json(result);
+  }
+
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Post(":id/unarchive")
+  async unarchive(@Param("id") id: string, @Req() req: RequestWithUser, @Res({ passthrough: true }) res: Response) {
+    const actor = req.user!;
+    const result = await this.employees.unarchiveEmployee(id, actor.userId);
+    return res.json(result);
+  }
+
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Delete(":id")
+  async remove(@Param("id") id: string, @Req() req: RequestWithUser, @Res({ passthrough: true }) res: Response) {
+    const actor = req.user!;
+    const result = await this.employees.deleteEmployee(id, actor.userId, actor.employeeId ?? null);
+    return res.json(result);
   }
 }
 

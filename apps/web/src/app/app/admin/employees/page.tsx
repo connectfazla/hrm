@@ -23,6 +23,7 @@ type Employee = {
   employmentType: string;
   probationStatus: string;
   dateJoined: string;
+  archivedAt?: string | null;
 };
 
 export default function EmployeesPage() {
@@ -98,7 +99,14 @@ export default function EmployeesPage() {
                         <AvatarFallback className="text-xs">{initials}</AvatarFallback>
                       </Avatar>
                       <div>
-                        <div className="font-medium group-hover:underline">{e.fullName}</div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-medium group-hover:underline">{e.fullName}</span>
+                          {e.archivedAt && (
+                            <Badge variant="secondary" className="text-[10px] font-normal border-amber-300 bg-amber-50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
+                              Archived
+                            </Badge>
+                          )}
+                        </div>
                         <div className="text-xs text-muted-foreground">{e.jobTitle}</div>
                       </div>
                     </Link>

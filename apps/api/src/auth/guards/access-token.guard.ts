@@ -76,6 +76,16 @@ export class AccessTokenGuard implements CanActivate {
         employeeId: payload.employeeId ?? null,
       };
 
+      if (payload.employeeId) {
+        const emp = await this.prisma.employee.findUnique({
+          where: { id: payload.employeeId },
+          select: { archivedAt: true },
+        });
+        if (emp?.archivedAt) {
+          throw new UnauthorizedException("This account has been archived.");
+        }
+      }
+
       return true;
     } catch {
       throw new UnauthorizedException("Invalid or expired access token");

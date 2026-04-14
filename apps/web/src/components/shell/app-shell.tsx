@@ -111,6 +111,27 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   }, [state, pathname, router]);
 
+  const refreshUnread = React.useCallback(() => {
+    apiFetch<{ unread: number }>('/notifications/unread-count')
+      .then((r) => setHasUnreadNotifications((r.unread ?? 0) > 0))
+      .catch(() => undefined);
+  }, []);
+
+  React.useEffect(() => {
+    if (state.status !== 'authenticated') return;
+    refreshUnread();
+    const id = setInterval(refreshUnread, 30000);
+    return () => clearInterval(id);
+  }, [state.status, refreshUnread]);
+
+  React.useEffect(() => {
+    if (state.status !== 'authenticated') return;
+    if (pathname === '/app/notifications' || pathname === '/app/admin/notifications') {
+      const t = setTimeout(refreshUnread, 750);
+      return () => clearTimeout(t);
+    }
+  }, [pathname, refreshUnread, state.status]);
+
   if (state.status === 'loading') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
@@ -221,27 +242,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
     </>
   );
-
-  const refreshUnread = React.useCallback(() => {
-    apiFetch<{ unread: number }>('/notifications/unread-count')
-      .then((r) => setHasUnreadNotifications((r.unread ?? 0) > 0))
-      .catch(() => undefined);
-  }, []);
-
-  React.useEffect(() => {
-    if (state.status !== 'authenticated') return;
-    refreshUnread();
-    const id = setInterval(refreshUnread, 30000);
-    return () => clearInterval(id);
-  }, [state.status, refreshUnread]);
-
-  React.useEffect(() => {
-    if (pathname === '/app/notifications' || pathname === '/app/admin/notifications') {
-      // The notifications pages mark items as read; refresh shortly after navigation.
-      const t = setTimeout(refreshUnread, 750);
-      return () => clearTimeout(t);
-    }
-  }, [pathname, refreshUnread]);
 
   return (
     <div className="flex min-h-screen bg-background">

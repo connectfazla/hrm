@@ -100,6 +100,13 @@ const CATEGORIES: Category[] = [
       { method: 'GET', path: '/settings', description: 'Get application settings.', auth: 'Admin' },
       { method: 'PUT', path: '/settings/:key', description: 'Update a setting value by key.', auth: 'Admin' },
       { method: 'POST', path: '/settings/smtp/test', description: 'Send a test email via SMTP config.', auth: 'Admin' },
+      { method: 'GET', path: '/settings/nuke-app/backup', description: 'Download JSON snapshot of all application tables.', auth: 'Admin' },
+      {
+        method: 'POST',
+        path: '/settings/nuke-app/execute',
+        description: 'Wipe all application data (requires password + confirmation phrase DELETE ALL DATA).',
+        auth: 'Admin',
+      },
     ],
   },
   {

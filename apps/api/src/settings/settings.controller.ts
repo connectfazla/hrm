@@ -1,4 +1,5 @@
-import { BadRequestException, Body, Controller, Delete, Get, Param, Post, Put, Req, UseGuards } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Delete, Get, Param, Post, Put, Req, Res, UseGuards } from "@nestjs/common";
+import type { Response } from "express";
 import { z } from "zod";
 import crypto from "node:crypto";
 import { AccessTokenGuard } from "../auth/guards/access-token.guard";
@@ -25,6 +26,11 @@ const testSmtpSchema = z.object({
   pass: z.string().optional(),
 });
 
+const nukeExecuteSchema = z.object({
+  confirmation: z.literal("DELETE ALL DATA"),
+  password: z.string().min(1),
+});
+
 type ReqWithUser = Request & { user?: { userId: string; role: string } };
 
 @Controller("settings")
@@ -39,6 +45,32 @@ export class SettingsController {
   @Get()
   async getAll() {
     return this.settings.getAll();
+  }
+
+  @Get("nuke-app/backup")
+  async downloadFullBackup(@Res() res: Response) {
+    const payload = await this.settings.exportAllTablesJson();
+    const body = this.settings.getBackupJsonString(payload);
+    const filename = `uppearance-full-backup-${new Date().toISOString().slice(0, 19).replace(/:/g, "-")}.json`;
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    return res.send(Buffer.from(body, "utf8"));
+  }
+
+  @Post("nuke-app/execute")
+  async executeFullDataReset(@Body() body: unknown, @Req() req: ReqWithUser) {
+    const parsed = nukeExecuteSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException('Type the phrase exactly: DELETE ALL DATA (and your current admin password).');
+    }
+    const actor = req.user!;
+    const result = await this.settings.executeFullDataReset(actor.userId, parsed.data.password);
+    return {
+      ok: true,
+      message:
+        "All application data was removed from the database. Default attendance settings were restored. Create a new admin via Register (if allowed) or run prisma db seed. Encrypted files under FILES_STORAGE_ROOT may still exist until removed manually.",
+      ...result,
+    };
   }
 
   @Put(":key")

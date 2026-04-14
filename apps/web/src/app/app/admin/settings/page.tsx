@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,10 +12,39 @@ import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api';
 import { filterOutLegacyDemoEmployees } from '@/lib/legacy-demo-employees';
+import { useAuth } from '@/components/auth-provider';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Settings, User, Building2, Mail, FileText, Save, TestTube, Key, Shield, Users, Copy, Trash2, Upload, Image } from 'lucide-react';
+import {
+  Settings,
+  User,
+  Building2,
+  Mail,
+  FileText,
+  Save,
+  TestTube,
+  Key,
+  Shield,
+  Users,
+  Copy,
+  Trash2,
+  Upload,
+  Image,
+  AlertTriangle,
+  Download,
+} from 'lucide-react';
 
-type TabId = 'profile' | 'company' | 'smtp' | 'templates' | 'api-keys' | 'users';
+type TabId = 'profile' | 'company' | 'smtp' | 'templates' | 'api-keys' | 'users' | 'data';
+
+const NUKE_CONFIRM_PHRASE = 'DELETE ALL DATA';
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000/api/v1';
 
 type Profile = {
   userId: string;
@@ -108,9 +138,12 @@ const tabs: { id: TabId; label: string; icon: typeof Settings }[] = [
   { id: 'templates', label: 'Email Templates', icon: FileText },
   { id: 'api-keys', label: 'API Keys', icon: Key },
   { id: 'users', label: 'User Roles', icon: Shield },
+  { id: 'data', label: 'Data', icon: AlertTriangle },
 ];
 
 export default function AdminSettingsPage() {
+  const router = useRouter();
+  const { logout } = useAuth();
   const [activeTab, setActiveTab] = React.useState<TabId>('profile');
 
   const [profile, setProfile] = React.useState<Profile | null>(null);
@@ -153,6 +186,13 @@ export default function AdminSettingsPage() {
   const [usersLoading, setUsersLoading] = React.useState(false);
   const [usersLoaded, setUsersLoaded] = React.useState(false);
   const [roleChanging, setRoleChanging] = React.useState<string | null>(null);
+
+  const [nukeOpen, setNukeOpen] = React.useState(false);
+  const [nukePassword, setNukePassword] = React.useState('');
+  const [nukePhrase, setNukePhrase] = React.useState('');
+  const [backupSavedAck, setBackupSavedAck] = React.useState(false);
+  const [nukeBusy, setNukeBusy] = React.useState(false);
+  const [backupDownloadBusy, setBackupDownloadBusy] = React.useState(false);
 
   const needsSettings = activeTab === 'company' || activeTab === 'smtp' || activeTab === 'templates';
 
@@ -398,6 +438,72 @@ export default function AdminSettingsPage() {
       toast.success(`Role updated to ${newRole}`);
     } catch (err) { toast.error(err instanceof Error ? err.message : 'Failed to update role'); }
     finally { setRoleChanging(null); }
+  }
+
+  async function handleDownloadFullBackup() {
+    setBackupDownloadBusy(true);
+    try {
+      const res = await fetch(`${API_BASE}/settings/nuke-app/backup`, { credentials: 'include' });
+      if (!res.ok) {
+        let msg = `Download failed (${res.status})`;
+        try {
+          const j = (await res.json()) as { message?: string };
+          if (j?.message) msg = j.message;
+        } catch {
+          /* ignore */
+        }
+        throw new Error(msg);
+      }
+      const blob = await res.blob();
+      const cd = res.headers.get('content-disposition');
+      let filename = `uppearance-full-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      const m = cd?.match(/filename="?([^";]+)"?/i);
+      if (m?.[1]) filename = m[1];
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Backup downloaded');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Download failed');
+    } finally {
+      setBackupDownloadBusy(false);
+    }
+  }
+
+  async function handleExecuteNuke() {
+    if (!backupSavedAck) {
+      toast.error('Confirm that you have saved the backup file.');
+      return;
+    }
+    if (nukePhrase.trim() !== NUKE_CONFIRM_PHRASE) {
+      toast.error(`Type exactly: ${NUKE_CONFIRM_PHRASE}`);
+      return;
+    }
+    if (!nukePassword) {
+      toast.error('Enter your current admin password.');
+      return;
+    }
+    setNukeBusy(true);
+    try {
+      await apiFetch('/settings/nuke-app/execute', {
+        method: 'POST',
+        json: { confirmation: NUKE_CONFIRM_PHRASE, password: nukePassword },
+      });
+      toast.success('Database cleared. You can register a new organization.');
+      setNukeOpen(false);
+      setNukePassword('');
+      setNukePhrase('');
+      setBackupSavedAck(false);
+      await logout();
+      router.push('/register');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Reset failed');
+    } finally {
+      setNukeBusy(false);
+    }
   }
 
   function updateTemplate(id: string, patch: Partial<TemplateEntry>) {
@@ -940,6 +1046,111 @@ export default function AdminSettingsPage() {
           </Card>
         </div>
       )}
+
+      {activeTab === 'data' && (
+        <Card className="border-destructive/40 bg-destructive/5">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-destructive/15 text-destructive">
+                <AlertTriangle className="h-4 w-4" />
+              </div>
+              <div>
+                <CardTitle className="text-lg text-destructive">Delete all data</CardTitle>
+                <CardDescription>
+                  Download a full JSON snapshot of the database, then wipe every table so you can start fresh (new admin
+                  registration or seed). This cannot be undone.
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Uploaded document files on disk are not removed automatically—clean <code className="rounded bg-muted px-1">FILES_STORAGE_ROOT</code> on the server if you need disk space.
+            </p>
+            <Button type="button" variant="destructive" onClick={() => setNukeOpen(true)}>
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete all data…
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      <Dialog
+        open={nukeOpen}
+        onOpenChange={(open) => {
+          setNukeOpen(open);
+          if (!open) {
+            setNukePassword('');
+            setNukePhrase('');
+            setBackupSavedAck(false);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Reset the entire database?</DialogTitle>
+            <DialogDescription className="space-y-3 pt-2 text-left">
+              <span className="block">
+                Step 1: download a backup JSON (all application tables). Store it somewhere safe.
+              </span>
+              <span className="block">
+                Step 2: confirm in writing and enter your admin password. Your session will end and all users, employees,
+                attendance, payroll, and settings rows will be removed.
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              disabled={backupDownloadBusy}
+              onClick={() => void handleDownloadFullBackup()}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              {backupDownloadBusy ? 'Preparing download…' : 'Download full backup (JSON)'}
+            </Button>
+            <label className="flex cursor-pointer items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="mt-1 h-4 w-4 rounded border-input accent-primary"
+                checked={backupSavedAck}
+                onChange={(e) => setBackupSavedAck(e.target.checked)}
+              />
+              <span>I have saved the backup file to a safe location.</span>
+            </label>
+            <div className="space-y-2">
+              <Label htmlFor="nuke-phrase">Type this phrase exactly</Label>
+              <Input
+                id="nuke-phrase"
+                autoComplete="off"
+                placeholder={NUKE_CONFIRM_PHRASE}
+                value={nukePhrase}
+                onChange={(e) => setNukePhrase(e.target.value)}
+                className="font-mono text-sm"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="nuke-password">Your current admin password</Label>
+              <Input
+                id="nuke-password"
+                type="password"
+                autoComplete="current-password"
+                value={nukePassword}
+                onChange={(e) => setNukePassword(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" size="sm" onClick={() => setNukeOpen(false)} disabled={nukeBusy}>
+              Cancel
+            </Button>
+            <Button type="button" variant="destructive" size="sm" disabled={nukeBusy} onClick={() => void handleExecuteNuke()}>
+              {nukeBusy ? 'Deleting…' : 'Delete everything'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

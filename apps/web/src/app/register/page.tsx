@@ -19,6 +19,7 @@ const schema = z.object({
   fullName: z.string().min(2, 'Name is required'),
   email: z.string().email(),
   companyName: z.string().min(2, 'Company name is required'),
+  registrationCode: z.string().min(1, 'Access code is required'),
   password: z.string().min(8, 'At least 8 characters'),
   confirmPassword: z.string(),
 }).refine((d) => d.password === d.confirmPassword, {
@@ -33,14 +34,27 @@ export default function RegisterPage() {
   const { setUser } = useAuth();
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { fullName: '', email: '', companyName: '', password: '', confirmPassword: '' },
+    defaultValues: {
+      fullName: '',
+      email: '',
+      companyName: '',
+      registrationCode: '',
+      password: '',
+      confirmPassword: '',
+    },
   });
 
   const onSubmit = async (values: FormValues) => {
     try {
       const res = await apiFetch<{ user: SessionUser }>('/auth/register', {
         method: 'POST',
-        json: { fullName: values.fullName, email: values.email, companyName: values.companyName, password: values.password },
+        json: {
+          fullName: values.fullName,
+          email: values.email,
+          companyName: values.companyName,
+          registrationCode: values.registrationCode,
+          password: values.password,
+        },
       });
       setUser(res.user);
       toast.success('Account created — welcome to Uppearance!');
@@ -85,6 +99,23 @@ export default function RegisterPage() {
                 {form.formState.errors.companyName && (
                   <p className="text-sm text-destructive">{form.formState.errors.companyName.message}</p>
                 )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="registrationCode">Admin access code</Label>
+                <Input
+                  id="registrationCode"
+                  type="password"
+                  autoComplete="off"
+                  placeholder="Provided by your administrator"
+                  className="h-10"
+                  {...form.register('registrationCode')}
+                />
+                {form.formState.errors.registrationCode && (
+                  <p className="text-sm text-destructive">{form.formState.errors.registrationCode.message}</p>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Registration requires the code your organization admin shares with you.
+                </p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>

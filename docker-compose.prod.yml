@@ -36,6 +36,7 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+      REGISTRATION_CODE: ${REGISTRATION_CODE:-upp}
       PORT: "4000"
     ports:
       - "${API_PORT:-4000}:4000"

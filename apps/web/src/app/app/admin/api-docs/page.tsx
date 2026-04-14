@@ -27,7 +27,12 @@ const CATEGORIES: Category[] = [
     name: 'Auth',
     endpoints: [
       { method: 'POST', path: '/auth/login', description: 'Sign in with email and password.', auth: 'Public' },
-      { method: 'POST', path: '/auth/register', description: 'Create a new user account.', auth: 'Public' },
+      {
+        method: 'POST',
+        path: '/auth/register',
+        description: 'Create a new user account (requires registrationCode matching REGISTRATION_CODE, default upp).',
+        auth: 'Public',
+      },
       { method: 'POST', path: '/auth/refresh', description: 'Rotate tokens using a refresh cookie.', auth: 'Refresh cookie' },
       { method: 'POST', path: '/auth/logout', description: 'Invalidate session and clear auth cookies.', auth: 'Authenticated' },
       { method: 'POST', path: '/auth/forgot-password', description: 'Request a password reset email.', auth: 'Public' },

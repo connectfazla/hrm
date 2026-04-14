@@ -15,6 +15,7 @@ const registerSchema = z.object({
   email: z.string().email(),
   companyName: z.string().min(2),
   password: z.string().min(8),
+  registrationCode: z.string().min(1),
 });
 
 const refreshSchema = z.object({
@@ -63,8 +64,8 @@ export class AuthController {
       return res.status(400).json({ message: "Invalid registration request" });
     }
 
-    const { fullName, email, companyName, password } = parsed.data;
-    const result = await this.auth.register(fullName, email, companyName, password);
+    const { fullName, email, companyName, password, registrationCode } = parsed.data;
+    const result = await this.auth.register(fullName, email, companyName, password, registrationCode);
 
     this.setCookies(res, result.accessToken, result.refreshToken);
 

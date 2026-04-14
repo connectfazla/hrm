@@ -26,6 +26,17 @@ function randomToken(bytes = 48) {
   return crypto.randomBytes(bytes).toString("base64url");
 }
 
+function registrationCodeMatches(expected: string, provided: string): boolean {
+  const e = expected.trim();
+  const p = provided.trim();
+  if (e.length !== p.length) return false;
+  try {
+    return crypto.timingSafeEqual(Buffer.from(e, "utf8"), Buffer.from(p, "utf8"));
+  } catch {
+    return false;
+  }
+}
+
 @Injectable()
 export class AuthService {
   private readonly mailer = nodemailer.createTransport({
@@ -37,12 +48,23 @@ export class AuthService {
         : undefined,
   });
 
-  async register(fullName: string, email: string, companyName: string, password: string): Promise<LoginResult> {
+  async register(
+    fullName: string,
+    email: string,
+    companyName: string,
+    password: string,
+    registrationCode: string,
+  ): Promise<LoginResult> {
     const passwordHash = await bcrypt.hash(password, 10);
     const now = new Date();
     const sixMonthsLater = new Date(now.getTime() + 180 * 24 * 60 * 60 * 1000);
 
     try {
+      const expectedCode = process.env.REGISTRATION_CODE ?? "upp";
+      if (!registrationCodeMatches(expectedCode, registrationCode)) {
+        throw new ForbiddenException("Invalid registration code.");
+      }
+
       const allowPublicRegister = (process.env.ALLOW_PUBLIC_REGISTER ?? "").toLowerCase() === "true";
       if (!allowPublicRegister) {
         const userCount = await this.prisma.user.count();

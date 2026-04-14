@@ -5,6 +5,9 @@ import { toast } from 'sonner';
 import type { SessionUser } from '@/lib/auth';
 import { refresh as refreshSession, logout as apiLogout } from '@/lib/auth';
 
+/** Serialize refresh calls so Strict Mode / double-mount cannot rotate the refresh token twice and invalidate the session. */
+let refreshChain: Promise<void> = Promise.resolve();
+
 type AuthState =
   | { status: 'loading'; user: null }
   | { status: 'authenticated'; user: SessionUser }
@@ -20,13 +23,20 @@ const AuthContext = React.createContext<{
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = React.useState<AuthState>({ status: 'loading', user: null });
 
-  const refresh = React.useCallback(async () => {
-    try {
-      const res = await refreshSession();
-      setState({ status: 'authenticated', user: res.user });
-    } catch {
-      setState({ status: 'anonymous', user: null });
-    }
+  const refresh = React.useCallback(() => {
+    const next = refreshChain.then(async () => {
+      try {
+        const res = await refreshSession();
+        setState({ status: 'authenticated', user: res.user });
+      } catch {
+        setState({ status: 'anonymous', user: null });
+      }
+    });
+    refreshChain = next.then(
+      () => undefined,
+      () => undefined,
+    );
+    return next;
   }, []);
 
   const setUser = React.useCallback((user: SessionUser) => {

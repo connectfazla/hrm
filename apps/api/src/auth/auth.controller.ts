@@ -18,10 +18,6 @@ const registerSchema = z.object({
   registrationCode: z.string().min(1),
 });
 
-const refreshSchema = z.object({
-  // No body needed; cookie-based refresh.
-});
-
 const forgotPasswordSchema = z.object({
   email: z.string().email(),
 });
@@ -91,13 +87,7 @@ export class AuthController {
   }
 
   @Post("refresh")
-  async refresh(@Res({ passthrough: true }) res: Response, @Body() body: unknown): Promise<unknown> {
-    // Keep body parsing minimal; cookie is authoritative.
-    const refreshParsed = refreshSchema.safeParse(body);
-    if (!refreshParsed.success) {
-      return res.status(400).json({ message: "Invalid refresh request" });
-    }
-
+  async refresh(@Res({ passthrough: true }) res: Response): Promise<unknown> {
     const req = res.req as CookiesRequest;
     const refreshToken = req.cookies?.["refreshToken"];
 

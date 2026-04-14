@@ -65,10 +65,14 @@ export class SettingsController {
     }
     const actor = req.user!;
     const result = await this.settings.executeFullDataReset(actor.userId, parsed.data.password);
+    const storageNote = result.documentStorageCleared
+      ? " Uploaded document files under FILES_STORAGE_ROOT were removed."
+      : " Document files on disk were not cleared (FILES_STORAGE_ROOT unset, unsafe path, or I/O error).";
     return {
       ok: true,
       message:
-        "All application data was removed from the database. Default attendance settings were restored. Create a new admin via Register (if allowed) or run prisma db seed. Encrypted files under FILES_STORAGE_ROOT may still exist until removed manually.",
+        "All database tables including every user account were cleared. Default attendance settings were restored. You can register again (admin code vs employee code) or run prisma db seed." +
+        storageNote,
       ...result,
     };
   }

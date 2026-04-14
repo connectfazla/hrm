@@ -118,11 +118,7 @@ Web: `http://localhost:3000`
 | Role | Email | Password |
 |------|-------|----------|
 | Admin | `admin@uppearance.com` | `Admin123!` |
-| Employee | `aisha@uppearance.com` | `Employee123!` |
-| Employee | `khalid@uppearance.com` | `Employee123!` |
-| Employee | `lina@uppearance.com` | `Employee123!` |
-| Employee | `noor@uppearance.com` | `Employee123!` |
-| Employee | `samir@uppearance.com` | `Employee123!` |
+| Employee | `fazla@uppearance.com` | `Employee123!` |
 
 ## Environment Variables
 
@@ -142,6 +138,10 @@ Web: `http://localhost:3000`
 | `FILE_ENCRYPTION_KEY` | 32-byte hex key for document encryption | — |
 | `WEB_BASE_URL` | Frontend URL | `http://localhost:3000` |
 | `CORS_ORIGIN` | Allowed CORS origins (comma-separated) | `http://localhost:3000` |
+| `REGISTRATION_CODE_ADMIN` | Self-register code that creates an **ADMIN** account | `darkk` |
+| `REGISTRATION_CODE_EMPLOYEE` | Self-register code that creates an **EMPLOYEE** account | `upp` |
+| `ALLOW_PUBLIC_REGISTER` | When `true`, anyone with a valid code can register even if users already exist | unset / `false` |
+| `FILES_STORAGE_ROOT` | Directory for uploaded documents (cleared on “Delete all data” when safe) | `storage` |
 
 ## API Overview
 

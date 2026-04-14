@@ -13,6 +13,15 @@ import { mergeEmailTemplates } from "../src/mail/email-template-defaults";
 
 const prisma = new PrismaClient();
 
+/** Former multi-employee seed accounts — removed so re-seed leaves only admin + Fazla Rabbi. */
+const LEGACY_SEED_EMPLOYEE_EMAILS = [
+  "aisha@uppearance.com",
+  "khalid@uppearance.com",
+  "lina@uppearance.com",
+  "noor@uppearance.com",
+  "samir@uppearance.com",
+] as const;
+
 function addMonths(date: Date, months: number) {
   const d = new Date(date.getTime());
   d.setMonth(d.getMonth() + months);
@@ -96,102 +105,34 @@ async function seed() {
     create: { email: adminEmail, passwordHash: adminPasswordHash, role: Role.ADMIN, employeeId: adminEmployee.id },
   });
 
-  // ─── Employees ───────────────────────────────────────────
+  // ─── Remove legacy multi-employee demo rows (re-seed stays lean: admin + one employee) ───
+  await prisma.employee.deleteMany({
+    where: { workEmail: { in: [...LEGACY_SEED_EMPLOYEE_EMAILS] } },
+  });
+  await prisma.user.deleteMany({
+    where: { email: { in: [...LEGACY_SEED_EMPLOYEE_EMAILS] } },
+  });
+
+  // ─── Single employee account (demo) ─────────────────────
   const employeeDefs = [
     {
-      fullName: "Aisha Al Mansoori",
-      jobTitle: "HR Coordinator",
-      department: "Human Resources",
-      dateOfBirth: "1994-05-10",
-      nationality: "Emirati",
-      personalEmail: "aisha.personal@example.com",
-      workEmail: "aisha@uppearance.com",
-      phone: "+971500000001",
-      emiratesIdNumber: "784-123-567",
-      emiratesIdExpiryDate: "2030-04-01",
-      passportNumber: "P1234567",
-      passportExpiryDate: "2030-12-10",
-      joinMonthsAgo: 4,
-      employmentType: EmploymentType.FULL_TIME,
-      baseSalary: 6000,
-      allowances: 500,
-      emergency: { name: "Hassan Al Mansoori", relation: "Spouse", phone: "+971500000101" },
-    },
-    {
-      fullName: "Khalid Saeed",
-      jobTitle: "Operations Specialist",
-      department: "Operations",
-      dateOfBirth: "1989-11-22",
-      nationality: "Emirati",
-      personalEmail: "khalid.personal@example.com",
-      workEmail: "khalid@uppearance.com",
-      phone: "+971500000002",
-      emiratesIdNumber: "784-888-990",
-      emiratesIdExpiryDate: "2027-08-15",
-      passportNumber: "P2345678",
-      passportExpiryDate: "2028-02-02",
+      fullName: "Fazla Rabbi",
+      jobTitle: "Software Engineer",
+      department: "Technology",
+      dateOfBirth: "1995-04-12",
+      nationality: "Bangladeshi",
+      personalEmail: "fazla.personal@example.com",
+      workEmail: "fazla@uppearance.com",
+      phone: "+971500000010",
+      emiratesIdNumber: "784-900-100",
+      emiratesIdExpiryDate: "2030-06-01",
+      passportNumber: "P9001001",
+      passportExpiryDate: "2031-03-15",
       joinMonthsAgo: 8,
       employmentType: EmploymentType.FULL_TIME,
-      baseSalary: 7000,
-      allowances: 800,
-      emergency: { name: "Maryam Saeed", relation: "Mother", phone: "+971500000202" },
-    },
-    {
-      fullName: "Lina Karim",
-      jobTitle: "Software QA (Contract)",
-      department: "Technology",
-      dateOfBirth: "1992-02-18",
-      nationality: "Jordanian",
-      personalEmail: "lina.personal@example.com",
-      workEmail: "lina@uppearance.com",
-      phone: "+971500000003",
-      emiratesIdNumber: "887-321-990",
-      emiratesIdExpiryDate: "2029-09-30",
-      passportNumber: "P3456789",
-      passportExpiryDate: "2031-05-20",
-      joinMonthsAgo: 14,
-      employmentType: EmploymentType.CONTRACT,
-      baseSalary: 7500,
-      allowances: 300,
-      emergency: { name: "Yousef Karim", relation: "Father", phone: "+971500000303" },
-    },
-    {
-      fullName: "Noor Al Qasimi",
-      jobTitle: "Account Coordinator",
-      department: "Finance",
-      dateOfBirth: "1996-08-01",
-      nationality: "Emirati",
-      personalEmail: "noor.personal@example.com",
-      workEmail: "noor@uppearance.com",
-      phone: "+971500000004",
-      emiratesIdNumber: "784-555-111",
-      emiratesIdExpiryDate: "2026-06-15",
-      passportNumber: "P4567890",
-      passportExpiryDate: "2027-03-25",
-      joinMonthsAgo: 10,
-      employmentType: EmploymentType.PART_TIME,
-      baseSalary: 4500,
-      allowances: 200,
-      emergency: { name: "Omar Al Qasimi", relation: "Brother", phone: "+971500000404" },
-    },
-    {
-      fullName: "Samir Patel",
-      jobTitle: "Project Coordinator",
-      department: "Projects",
-      dateOfBirth: "1990-01-30",
-      nationality: "Indian",
-      personalEmail: "samir.personal@example.com",
-      workEmail: "samir@uppearance.com",
-      phone: "+971500000005",
-      emiratesIdNumber: "992-111-222",
-      emiratesIdExpiryDate: "2028-01-12",
-      passportNumber: "P5678901",
-      passportExpiryDate: "2029-07-14",
-      joinMonthsAgo: 24,
-      employmentType: EmploymentType.FULL_TIME,
-      baseSalary: 8200,
-      allowances: 1000,
-      emergency: { name: "Rita Patel", relation: "Spouse", phone: "+971500000505" },
+      baseSalary: 12000,
+      allowances: 1500,
+      emergency: { name: "Emergency contact", relation: "Family", phone: "+971500000011" },
     },
   ];
 
@@ -447,13 +388,10 @@ async function seed() {
     status: LeaveStatus;
     reason: string;
   }> = [
-    { empIdx: 0, type: LeaveType.ANNUAL, startDaysAgo: 30, endDaysAgo: 28, status: LeaveStatus.APPROVED, reason: "Family visit to Abu Dhabi" },
-    { empIdx: 1, type: LeaveType.SICK, startDaysAgo: 10, endDaysAgo: 9, status: LeaveStatus.APPROVED, reason: "Doctor appointment and rest day" },
-    { empIdx: 2, type: LeaveType.ANNUAL, startDaysAgo: 5, endDaysAgo: 2, status: LeaveStatus.PENDING, reason: "Personal travel to Amman" },
-    { empIdx: 3, type: LeaveType.EMERGENCY_UNPAID, startDaysAgo: 20, endDaysAgo: 19, status: LeaveStatus.APPROVED, reason: "Family emergency" },
-    { empIdx: 4, type: LeaveType.ANNUAL, startDaysAgo: 45, endDaysAgo: 40, status: LeaveStatus.APPROVED, reason: "Annual vacation to India" },
-    { empIdx: 4, type: LeaveType.STUDY, startDaysAgo: 3, endDaysAgo: 3, status: LeaveStatus.PENDING, reason: "PMP certification exam" },
-    { empIdx: 1, type: LeaveType.ANNUAL, startDaysAgo: 60, endDaysAgo: 58, status: LeaveStatus.REJECTED, reason: "Short trip (conflicted with deadline)" },
+    { empIdx: 0, type: LeaveType.ANNUAL, startDaysAgo: 30, endDaysAgo: 28, status: LeaveStatus.APPROVED, reason: "Annual leave" },
+    { empIdx: 0, type: LeaveType.SICK, startDaysAgo: 10, endDaysAgo: 9, status: LeaveStatus.APPROVED, reason: "Medical appointment" },
+    { empIdx: 0, type: LeaveType.ANNUAL, startDaysAgo: 5, endDaysAgo: 2, status: LeaveStatus.PENDING, reason: "Personal travel" },
+    { empIdx: 0, type: LeaveType.ANNUAL, startDaysAgo: 60, endDaysAgo: 58, status: LeaveStatus.REJECTED, reason: "Short trip (team capacity)" },
   ];
 
   for (const lr of leaveData) {
@@ -536,16 +474,9 @@ async function seed() {
     fileName: string;
     expiryDaysFromNow: number;
   }> = [
-    { empIdx: 0, category: DocumentCategory.EMIRATES_ID, fileName: "aisha_eid.pdf", expiryDaysFromNow: 365 },
-    { empIdx: 0, category: DocumentCategory.PASSPORT, fileName: "aisha_passport.pdf", expiryDaysFromNow: 730 },
-    { empIdx: 1, category: DocumentCategory.EMIRATES_ID, fileName: "khalid_eid.pdf", expiryDaysFromNow: 180 },
-    { empIdx: 1, category: DocumentCategory.VISA, fileName: "khalid_visa.pdf", expiryDaysFromNow: 45 },
-    { empIdx: 2, category: DocumentCategory.PASSPORT, fileName: "lina_passport.pdf", expiryDaysFromNow: 900 },
-    { empIdx: 2, category: DocumentCategory.EMPLOYMENT_CONTRACT, fileName: "lina_contract.pdf", expiryDaysFromNow: 60 },
-    { empIdx: 3, category: DocumentCategory.EMIRATES_ID, fileName: "noor_eid.pdf", expiryDaysFromNow: 30 },
-    { empIdx: 3, category: DocumentCategory.PASSPORT, fileName: "noor_passport.pdf", expiryDaysFromNow: 200 },
-    { empIdx: 4, category: DocumentCategory.EMIRATES_ID, fileName: "samir_eid.pdf", expiryDaysFromNow: 400 },
-    { empIdx: 4, category: DocumentCategory.PROFESSIONAL_CERTIFICATE, fileName: "samir_pmp.pdf", expiryDaysFromNow: 15 },
+    { empIdx: 0, category: DocumentCategory.EMIRATES_ID, fileName: "fazla_eid.pdf", expiryDaysFromNow: 365 },
+    { empIdx: 0, category: DocumentCategory.PASSPORT, fileName: "fazla_passport.pdf", expiryDaysFromNow: 730 },
+    { empIdx: 0, category: DocumentCategory.EMPLOYMENT_CONTRACT, fileName: "fazla_contract.pdf", expiryDaysFromNow: 180 },
   ];
 
   for (const doc of docDefs) {
@@ -582,35 +513,23 @@ async function seed() {
       userId: adminUser.id,
       type: NotificationType.LEAVE_APPROVAL_PENDING,
       title: "Leave request pending",
-      body: "Lina Karim has requested 4 days of annual leave. Review and approve or reject.",
+      body: "Fazla Rabbi has a pending annual leave request. Review and approve or reject.",
     },
     {
       userId: adminUser.id,
       type: NotificationType.DOCUMENT_EXPIRY_WARNING,
       title: "Document expiring soon",
-      body: "Samir Patel's PMP certificate expires in 15 days. Please request an updated copy.",
-    },
-    {
-      userId: adminUser.id,
-      type: NotificationType.DOCUMENT_EXPIRY_WARNING,
-      title: "Document expiring soon",
-      body: "Noor Al Qasimi's Emirates ID expires in 30 days.",
-    },
-    {
-      userId: adminUser.id,
-      type: NotificationType.LEAVE_APPROVAL_PENDING,
-      title: "Leave request pending",
-      body: "Samir Patel requested 1 day of study leave for PMP exam.",
+      body: "Review Fazla Rabbi's employment contract in the documents list before renewal.",
     },
     {
       userId: adminUser.id,
       type: NotificationType.MESSAGE,
       title: "Payroll completed",
-      body: `Payroll for ${payrollMonth.toISOString().slice(0, 7)} has been run successfully. ${employeeRecords.length} payslips generated.`,
+      body: `Payroll for ${payrollMonth.toISOString().slice(0, 7)} has been run successfully. ${employeeRecords.length} payslip(s) generated.`,
     },
   ];
 
-  for (const emp of employeeRecords.slice(0, 3)) {
+  for (const emp of employeeRecords) {
     notifications.push({
       userId: emp.userId,
       type: NotificationType.LEAVE_DECISION,
@@ -649,7 +568,7 @@ async function seed() {
 
   console.log("Seed complete.");
   console.log("Admin login: admin@uppearance.com / Admin123!");
-  console.log("Employee login: [name]@uppearance.com / Employee123!");
+  console.log("Employee login: fazla@uppearance.com / Employee123!");
 }
 
 seed()

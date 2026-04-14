@@ -116,7 +116,8 @@ export default function RegisterPage() {
                   <p className="text-sm text-destructive">{form.formState.errors.registrationCode.message}</p>
                 )}
                 <p className="text-xs text-muted-foreground">
-                  Registration requires the code your organization admin shares with you.
+                  Use the employee registration code from HR for a staff account, or the admin onboarding code your
+                  organization uses for the first administrator account (defaults are configured on the server).
                 </p>
               </div>
               <div className="space-y-2">

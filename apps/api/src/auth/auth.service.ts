@@ -62,8 +62,15 @@ export class AuthService {
     const sixMonthsLater = new Date(now.getTime() + 180 * 24 * 60 * 60 * 1000);
 
     try {
-      const expectedCode = process.env.REGISTRATION_CODE ?? "upp";
-      if (!registrationCodeMatches(expectedCode, registrationCode)) {
+      const adminRegistrationCode = process.env.REGISTRATION_CODE_ADMIN ?? "darkk";
+      const employeeRegistrationCode = process.env.REGISTRATION_CODE_EMPLOYEE ?? "upp";
+
+      let role: Role;
+      if (registrationCodeMatches(adminRegistrationCode, registrationCode)) {
+        role = Role.ADMIN;
+      } else if (registrationCodeMatches(employeeRegistrationCode, registrationCode)) {
+        role = Role.EMPLOYEE;
+      } else {
         throw new ForbiddenException("Invalid registration code.");
       }
 
@@ -81,7 +88,7 @@ export class AuthService {
       const employee = await this.prisma.employee.create({
         data: {
           fullName,
-          jobTitle: "Employee",
+          jobTitle: role === Role.ADMIN ? "Administrator" : "Employee",
           department: companyName,
           dateOfBirth: new Date("1990-01-01"),
           nationality: "UAE",
@@ -100,7 +107,7 @@ export class AuthService {
       });
 
       const user = await this.prisma.user.create({
-        data: { email, passwordHash, role: Role.EMPLOYEE, employeeId: employee.id },
+        data: { email, passwordHash, role, employeeId: employee.id },
       });
 
       const accessToken = this.signAccessToken(user);

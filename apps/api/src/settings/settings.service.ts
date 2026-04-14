@@ -1,5 +1,7 @@
 import { Injectable, UnauthorizedException } from "@nestjs/common";
 import bcrypt from "bcrypt";
+import * as fs from "node:fs/promises";
+import * as path from "node:path";
 import { mergeEmailTemplates } from "../mail/email-template-defaults";
 import { PrismaService } from "../prisma/prisma.service";
 
@@ -92,10 +94,14 @@ export class SettingsService {
   }
 
   /**
-   * Deletes all rows from application tables, then restores a minimal AttendanceConfig so the API stays usable.
+   * Deletes all rows from application tables (including every User), clears uploaded document files
+   * under FILES_STORAGE_ROOT when configured, then restores a minimal AttendanceConfig so the API stays usable.
    * Caller must verify admin password and confirmation phrase.
    */
-  async executeFullDataReset(actorUserId: string, password: string): Promise<{ tablesTruncated: number }> {
+  async executeFullDataReset(
+    actorUserId: string,
+    password: string,
+  ): Promise<{ tablesTruncated: number; documentStorageCleared: boolean }> {
     const user = await this.prisma.user.findUnique({ where: { id: actorUserId } });
     if (!user) throw new UnauthorizedException("Not authenticated");
 
@@ -104,6 +110,8 @@ export class SettingsService {
 
     const quoted = DATA_TABLE_NAMES.map((n) => `"${n}"`).join(", ");
     await this.prisma.$executeRawUnsafe(`TRUNCATE TABLE ${quoted} RESTART IDENTITY CASCADE`);
+
+    const documentStorageCleared = await this.wipeDocumentStorageRoot();
 
     await this.prisma.attendanceConfig.upsert({
       where: { id: "00000000-0000-0000-0000-000000000001" },
@@ -115,7 +123,27 @@ export class SettingsService {
       },
     });
 
-    return { tablesTruncated: DATA_TABLE_NAMES.length };
+    return { tablesTruncated: DATA_TABLE_NAMES.length, documentStorageCleared };
+  }
+
+  /** Removes all entries under FILES_STORAGE_ROOT (keeps the directory). Skips unsafe or missing paths. */
+  private async wipeDocumentStorageRoot(): Promise<boolean> {
+    const raw = process.env.FILES_STORAGE_ROOT?.trim();
+    if (!raw) return false;
+
+    const root = path.resolve(raw);
+    const unsafeRoots = new Set(["/", path.resolve("/app"), path.resolve("/tmp"), path.resolve("/var"), path.resolve("/etc")]);
+    if (unsafeRoots.has(root) || root.length < 4) return false;
+
+    try {
+      const names = await fs.readdir(root);
+      for (const name of names) {
+        await fs.rm(path.join(root, name), { recursive: true, force: true });
+      }
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   getBackupJsonString(payload: Record<string, unknown[]>): string {

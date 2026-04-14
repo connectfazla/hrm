@@ -16,7 +16,7 @@ export async function login(email: string, password: string) {
 }
 
 export async function refresh() {
-  return apiFetch<{ user: SessionUser }>('/auth/refresh', { method: 'POST', json: {} });
+  return apiFetch<{ user: SessionUser | null }>('/auth/refresh', { method: 'POST', json: {} });
 }
 
 export async function logout() {

@@ -34,7 +34,13 @@ const CATEGORIES: Category[] = [
           'Self-register with registrationCode: REGISTRATION_CODE_EMPLOYEE (default upp) → EMPLOYEE, or REGISTRATION_CODE_ADMIN (default darkk) → ADMIN. When ALLOW_PUBLIC_REGISTER is false, only works if there are zero users yet. Optional: prisma db seed for demo users.',
         auth: 'Public',
       },
-      { method: 'POST', path: '/auth/refresh', description: 'Rotate tokens using a refresh cookie.', auth: 'Refresh cookie' },
+      {
+        method: 'POST',
+        path: '/auth/refresh',
+        description:
+          'Session restore: returns { user } when refresh cookie is valid (rotates tokens); returns 200 with { user: null } when there is no or invalid refresh cookie (no error status for anonymous browsers).',
+        auth: 'Refresh cookie',
+      },
       { method: 'POST', path: '/auth/logout', description: 'Invalidate session and clear auth cookies.', auth: 'Authenticated' },
       { method: 'POST', path: '/auth/forgot-password', description: 'Request a password reset email.', auth: 'Public' },
       { method: 'POST', path: '/auth/reset-password', description: 'Complete password reset with token.', auth: 'Public' },

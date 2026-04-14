@@ -27,7 +27,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const next = refreshChain.then(async () => {
       try {
         const res = await refreshSession();
-        setState({ status: 'authenticated', user: res.user });
+        if (res.user) {
+          setState({ status: 'authenticated', user: res.user });
+        } else {
+          setState({ status: 'anonymous', user: null });
+        }
       } catch {
         setState({ status: 'anonymous', user: null });
       }

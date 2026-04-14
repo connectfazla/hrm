@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Post, Put, Req, Res, UseGuards } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Get, Post, Put, Req, Res, UnauthorizedException, UseGuards } from "@nestjs/common";
 import { z } from "zod";
 import type { Response, Request } from "express";
 import { AuthService } from "./auth.service";
@@ -91,14 +91,22 @@ export class AuthController {
     const req = res.req as CookiesRequest;
     const refreshToken = req.cookies?.["refreshToken"];
 
+    // 200 + user: null avoids noisy browser console errors on public pages (no session is normal).
     if (!refreshToken) {
-      return res.status(401).json({ message: "Missing refresh token" });
+      return res.status(200).json({ user: null });
     }
 
-    const result = await this.auth.refresh(refreshToken);
-    this.setCookies(res, result.accessToken, result.refreshToken);
-
-    return res.json({ user: result.user });
+    try {
+      const result = await this.auth.refresh(refreshToken);
+      this.setCookies(res, result.accessToken, result.refreshToken);
+      return res.json({ user: result.user });
+    } catch (e) {
+      if (e instanceof UnauthorizedException) {
+        this.clearSessionCookies(res);
+        return res.status(200).json({ user: null });
+      }
+      throw e;
+    }
   }
 
   @Post("logout")
@@ -107,8 +115,7 @@ export class AuthController {
     const refreshToken = req.cookies?.["refreshToken"] ?? null;
     await this.auth.logout(refreshToken);
 
-    res.clearCookie("accessToken", { path: "/" });
-    res.clearCookie("refreshToken", { path: "/api/v1/auth" });
+    this.clearSessionCookies(res);
 
     return res.json({ ok: true });
   }
@@ -159,6 +166,13 @@ export class AuthController {
 
     const updated = await this.auth.updateProfile(userId, parsed.data);
     return res.json({ profile: updated });
+  }
+
+  private clearSessionCookies(res: Response) {
+    const secure = process.env.NODE_ENV === "production";
+    const sameSite: boolean | "lax" | "strict" | "none" = "lax";
+    res.clearCookie("accessToken", { path: "/", secure, sameSite });
+    res.clearCookie("refreshToken", { path: "/api/v1/auth", secure, sameSite });
   }
 
   private setCookies(res: Response, accessToken: string, refreshToken: string) {

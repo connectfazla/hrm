@@ -90,10 +90,10 @@ export default function NewEmployeePage() {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle className="text-base">ID Documents</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base">National ID (NID)</CardTitle></CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2"><Label>Emirates ID Number *</Label><Input name="emiratesIdNumber" required /></div>
-            <div className="space-y-2"><Label>Emirates ID Expiry *</Label><Input name="emiratesIdExpiryDate" type="date" required /></div>
+            <div className="space-y-2"><Label>NID *</Label><Input name="emiratesIdNumber" required /></div>
+            <div className="space-y-2"><Label>NID expiry *</Label><Input name="emiratesIdExpiryDate" type="date" required /></div>
             <div className="space-y-2"><Label>Passport Number *</Label><Input name="passportNumber" required /></div>
             <div className="space-y-2"><Label>Passport Expiry *</Label><Input name="passportExpiryDate" type="date" required /></div>
           </CardContent>

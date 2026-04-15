@@ -550,12 +550,12 @@ export default function EmployeeDetailPage() {
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <CreditCard className="h-4 w-4" /> ID Documents
+                  <CreditCard className="h-4 w-4" /> National ID (NID)
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-0">
-                <InfoRow label="Emirates ID" value={emp.emiratesIdNumber} />
-                <InfoRow label="EID Expiry" value={fmtDate(emp.emiratesIdExpiryDate)} />
+                <InfoRow label="NID" value={emp.emiratesIdNumber} />
+                <InfoRow label="NID expiry" value={fmtDate(emp.emiratesIdExpiryDate)} />
                 <InfoRow label="Passport" value={emp.passportNumber} />
                 <InfoRow label="Passport Expiry" value={fmtDate(emp.passportExpiryDate)} />
               </CardContent>

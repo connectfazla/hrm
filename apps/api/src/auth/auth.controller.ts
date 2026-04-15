@@ -2,20 +2,13 @@ import { BadRequestException, Body, Controller, Get, Post, Put, Req, Res, Unauth
 import { z } from "zod";
 import type { Response, Request } from "express";
 import { AuthService } from "./auth.service";
+import { registerRequestSchema } from "./register-body.schema";
 import { AccessTokenGuard } from "./guards/access-token.guard";
 import { Role } from "@prisma/client";
 
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
-});
-
-const registerSchema = z.object({
-  fullName: z.string().min(2),
-  email: z.string().email(),
-  companyName: z.string().min(2),
-  password: z.string().min(8),
-  registrationCode: z.string().min(1),
 });
 
 const forgotPasswordSchema = z.object({
@@ -55,13 +48,12 @@ export class AuthController {
     @Body() body: unknown,
     @Res({ passthrough: true }) res: Response,
   ): Promise<unknown> {
-    const parsed = registerSchema.safeParse(body);
+    const parsed = registerRequestSchema.safeParse(body);
     if (!parsed.success) {
       return res.status(400).json({ message: "Invalid registration request" });
     }
 
-    const { fullName, email, companyName, password, registrationCode } = parsed.data;
-    const result = await this.auth.register(fullName, email, companyName, password, registrationCode);
+    const result = await this.auth.register(parsed.data);
 
     this.setCookies(res, result.accessToken, result.refreshToken);
 

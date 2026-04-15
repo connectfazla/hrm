@@ -31,7 +31,7 @@ const CATEGORIES: Category[] = [
         method: 'POST',
         path: '/auth/register',
         description:
-          'Self-register with registrationCode: REGISTRATION_CODE_EMPLOYEE (default upp) → EMPLOYEE, or REGISTRATION_CODE_ADMIN (default darkk) → ADMIN. When ALLOW_PUBLIC_REGISTER is false, only works if there are zero users yet. Optional: prisma db seed for demo users.',
+          'Self-register: send the same HR fields as POST /employees (full profile, compensation, bank, emergency contact) plus registrationCode and password (min 8). Code REGISTRATION_CODE_EMPLOYEE (default upp) → EMPLOYEE; REGISTRATION_CODE_ADMIN (default darkk) → ADMIN. Work email must be unique. Sets session cookies on success.',
         auth: 'Public',
       },
       {

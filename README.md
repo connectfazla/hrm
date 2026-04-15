@@ -140,7 +140,6 @@ Web: `http://localhost:3000`
 | `CORS_ORIGIN` | Allowed CORS origins (comma-separated) | `http://localhost:3000` |
 | `REGISTRATION_CODE_ADMIN` | Self-register code that creates an **ADMIN** account | `darkk` |
 | `REGISTRATION_CODE_EMPLOYEE` | Self-register code that creates an **EMPLOYEE** account | `upp` |
-| `ALLOW_PUBLIC_REGISTER` | When `true`, anyone with a valid code can register even if users already exist | unset / `false` |
 | `FILES_STORAGE_ROOT` | Directory for uploaded documents (cleared on “Delete all data” when safe) | `storage` |
 
 ## API Overview

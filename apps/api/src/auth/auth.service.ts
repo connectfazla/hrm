@@ -3,7 +3,8 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
 import crypto from "node:crypto";
-import { Role } from "@prisma/client";
+import { EmploymentType, ProbationStatus, Role } from "@prisma/client";
+import type { RegisterRequestBody } from "./register-body.schema";
 import { buildPasswordResetEmail } from "../mail/password-reset-email";
 import { PrismaService } from "../prisma/prisma.service";
 
@@ -39,6 +40,18 @@ function registrationCodeMatches(expected: string, provided: string): boolean {
   }
 }
 
+function addMonths(date: Date, months: number) {
+  const d = new Date(date.getTime());
+  d.setMonth(d.getMonth() + months);
+  return d;
+}
+
+function calcProbationStatus(now: Date, dateJoined: Date) {
+  const probationEndDate = addMonths(dateJoined, 6);
+  const status = now < probationEndDate ? ProbationStatus.ON_PROBATION : ProbationStatus.CONFIRMED;
+  return { probationEndDate, status };
+}
+
 @Injectable()
 export class AuthService {
   private readonly mailer = nodemailer.createTransport({
@@ -50,16 +63,10 @@ export class AuthService {
         : undefined,
   });
 
-  async register(
-    fullName: string,
-    email: string,
-    companyName: string,
-    password: string,
-    registrationCode: string,
-  ): Promise<LoginResult> {
-    const passwordHash = await bcrypt.hash(password, 10);
+  async register(body: RegisterRequestBody): Promise<LoginResult> {
     const now = new Date();
-    const sixMonthsLater = new Date(now.getTime() + 180 * 24 * 60 * 60 * 1000);
+    const { registrationCode, password, ...employeeInput } = body;
+    const passwordHash = await bcrypt.hash(password, 10);
 
     try {
       const adminRegistrationCode = process.env.REGISTRATION_CODE_ADMIN ?? "darkk";
@@ -74,40 +81,82 @@ export class AuthService {
         throw new ForbiddenException("Invalid registration code.");
       }
 
-      const allowPublicRegister = (process.env.ALLOW_PUBLIC_REGISTER ?? "").toLowerCase() === "true";
-      if (!allowPublicRegister) {
-        const userCount = await this.prisma.user.count();
-        if (userCount > 0) {
-          throw new ForbiddenException("Registration is disabled. Ask an admin to create your account.");
-        }
-      }
-
-      const existing = await this.prisma.user.findUnique({ where: { email } });
+      const existing = await this.prisma.user.findUnique({ where: { email: employeeInput.workEmail } });
       if (existing) throw new UnauthorizedException("Email already registered");
 
-      const employee = await this.prisma.employee.create({
-        data: {
-          fullName,
-          jobTitle: role === Role.ADMIN ? "Administrator" : "Employee",
-          department: companyName,
-          dateOfBirth: new Date("1990-01-01"),
-          nationality: "UAE",
-          phone: "+971500000000",
-          emiratesIdNumber: "000-0000-0000000-0",
-          emiratesIdExpiryDate: sixMonthsLater,
-          passportNumber: "PENDING",
-          passportExpiryDate: sixMonthsLater,
-          dateJoined: now,
-          employmentType: "FULL_TIME",
-          probationStatus: "CONFIRMED",
-          probationEndDate: now,
-          workEmail: email,
-          compensation: { create: { baseSalary: 0, allowances: 0 } },
-        },
+      const existingEmployee = await this.prisma.employee.findUnique({
+        where: { workEmail: employeeInput.workEmail },
       });
+      if (existingEmployee) throw new UnauthorizedException("Work email already registered");
 
-      const user = await this.prisma.user.create({
-        data: { email, passwordHash, role, employeeId: employee.id },
+      const dateJoined = new Date(employeeInput.dateJoined);
+      const { probationEndDate, status } = calcProbationStatus(now, dateJoined);
+
+      const user = await this.prisma.$transaction(async (tx) => {
+        const employee = await tx.employee.create({
+          data: {
+            fullName: employeeInput.fullName,
+            jobTitle: employeeInput.jobTitle,
+            department: employeeInput.department,
+            dateOfBirth: new Date(employeeInput.dateOfBirth),
+            nationality: employeeInput.nationality,
+            personalEmail: employeeInput.personalEmail ?? null,
+            workEmail: employeeInput.workEmail,
+            phone: employeeInput.phone,
+            emiratesIdNumber: employeeInput.emiratesIdNumber,
+            emiratesIdExpiryDate: new Date(employeeInput.emiratesIdExpiryDate),
+            passportNumber: employeeInput.passportNumber,
+            passportExpiryDate: new Date(employeeInput.passportExpiryDate),
+            dateJoined,
+            employmentType: employeeInput.employmentType as EmploymentType,
+            probationStatus: status,
+            probationEndDate,
+            notes: employeeInput.notes ?? null,
+            compensation: {
+              create: {
+                baseSalary: employeeInput.baseSalary,
+                allowances: employeeInput.allowances,
+              },
+            },
+            bankAccount: {
+              create: {
+                bankName: employeeInput.bankAccount.bankName,
+                accountHolderName: employeeInput.bankAccount.accountHolderName,
+                iban: employeeInput.bankAccount.iban ?? null,
+                accountNumber: employeeInput.bankAccount.accountNumber ?? null,
+              },
+            },
+            emergencyContact: {
+              create: {
+                name: employeeInput.emergencyContact.name,
+                relation: employeeInput.emergencyContact.relation,
+                phone: employeeInput.emergencyContact.phone,
+              },
+            },
+            salaryHistory: {
+              create: {
+                effectiveDate: dateJoined,
+                oldBaseSalary: 0,
+                newBaseSalary: employeeInput.baseSalary,
+                oldAllowances: 0,
+                newAllowances: employeeInput.allowances,
+                reason: "Self-registration",
+                changedByUserId: null,
+              },
+            },
+          },
+        });
+
+        const createdUser = await tx.user.create({
+          data: {
+            email: employeeInput.workEmail,
+            passwordHash,
+            role,
+            employeeId: employee.id,
+          },
+        });
+
+        return createdUser;
       });
 
       const accessToken = this.signAccessToken(user);
@@ -126,7 +175,13 @@ export class AuthService {
       return {
         accessToken,
         refreshToken,
-        user: { userId: user.id, role: user.role, employeeId: user.employeeId, email: user.email, fullName },
+        user: {
+          userId: user.id,
+          role: user.role,
+          employeeId: user.employeeId,
+          email: user.email,
+          fullName: employeeInput.fullName,
+        },
       };
     } catch (e) {
       if (e instanceof UnauthorizedException || e instanceof ForbiddenException) throw e;

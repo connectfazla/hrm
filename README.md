@@ -21,14 +21,16 @@ Full-stack HR management system built for small teams in the UAE (Dubai). Clean,
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Frontend | Next.js 15 (App Router), React, Tailwind CSS, shadcn/ui |
-| Backend | NestJS, Prisma ORM |
-| Database | PostgreSQL |
-| Auth | JWT (access + refresh tokens), HttpOnly cookies, bcrypt |
-| Email | Nodemailer (Mailhog for dev) |
-| File Storage | Local encrypted (AES-256-GCM) |
+
+| Layer        | Technology                                              |
+| ------------ | ------------------------------------------------------- |
+| Frontend     | Next.js 15 (App Router), React, Tailwind CSS, shadcn/ui |
+| Backend      | NestJS, Prisma ORM                                      |
+| Database     | PostgreSQL                                              |
+| Auth         | JWT (access + refresh tokens), HttpOnly cookies, bcrypt |
+| Email        | Nodemailer (Mailhog for dev)                            |
+| File Storage | Local encrypted (AES-256-GCM)                           |
+
 
 ## Project Structure
 
@@ -74,11 +76,13 @@ Edit `.env` with your database credentials and JWT secrets.
 ### 3. Start database
 
 **With Docker:**
+
 ```bash
 docker compose up -d
 ```
 
 **Without Docker (macOS):**
+
 ```bash
 brew install postgresql@16
 brew services start postgresql@16
@@ -115,47 +119,53 @@ Web: `http://localhost:3000`
 
 ## Default Credentials
 
-| Role | Email | Password |
-|------|-------|----------|
-| Admin | `admin@uppearance.com` | `Admin123!` |
+
+| Role     | Email                  | Password       |
+| -------- | ---------------------- | -------------- |
+| Admin    | `admin@uppearance.com` | `Admin123!`    |
 | Employee | `fazla@uppearance.com` | `Employee123!` |
+
 
 ## Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `DATABASE_URL` | PostgreSQL connection string | — |
-| `JWT_ACCESS_SECRET` | Secret for access tokens | — |
-| `JWT_REFRESH_SECRET` | Secret for refresh tokens | — |
-| `JWT_ACCESS_TTL_SECONDS` | Access token TTL | `900` |
-| `JWT_REFRESH_TTL_SECONDS` | Refresh token TTL | `1209600` |
-| `SESSION_IDLE_TTL_SECONDS` | Idle session timeout | `1800` |
-| `SMTP_HOST` | SMTP server host | `localhost` |
-| `SMTP_PORT` | SMTP server port | `1025` |
-| `SMTP_USER` | SMTP username | — |
-| `SMTP_PASS` | SMTP password | — |
-| `SMTP_FROM` | From email address | `hrms@uppearance.local` |
-| `FILE_ENCRYPTION_KEY` | 32-byte hex key for document encryption | — |
-| `WEB_BASE_URL` | Frontend URL | `http://localhost:3000` |
-| `CORS_ORIGIN` | Allowed CORS origins (comma-separated) | `http://localhost:3000` |
-| `REGISTRATION_CODE_ADMIN` | Self-register code that creates an **ADMIN** account | `darkk` |
-| `REGISTRATION_CODE_EMPLOYEE` | Self-register code that creates an **EMPLOYEE** account | `upp` |
-| `FILES_STORAGE_ROOT` | Directory for uploaded documents (cleared on “Delete all data” when safe) | `storage` |
+
+| Variable                     | Description                                                               | Default                 |
+| ---------------------------- | ------------------------------------------------------------------------- | ----------------------- |
+| `DATABASE_URL`               | PostgreSQL connection string                                              | —                       |
+| `JWT_ACCESS_SECRET`          | Secret for access tokens                                                  | —                       |
+| `JWT_REFRESH_SECRET`         | Secret for refresh tokens                                                 | —                       |
+| `JWT_ACCESS_TTL_SECONDS`     | Access token TTL                                                          | `900`                   |
+| `JWT_REFRESH_TTL_SECONDS`    | Refresh token TTL                                                         | `1209600`               |
+| `SESSION_IDLE_TTL_SECONDS`   | Idle session timeout                                                      | `1800`                  |
+| `SMTP_HOST`                  | SMTP server host                                                          | `localhost`             |
+| `SMTP_PORT`                  | SMTP server port                                                          | `1025`                  |
+| `SMTP_USER`                  | SMTP username                                                             | —                       |
+| `SMTP_PASS`                  | SMTP password                                                             | —                       |
+| `SMTP_FROM`                  | From email address                                                        | `hrms@uppearance.local` |
+| `FILE_ENCRYPTION_KEY`        | 32-byte hex key for document encryption                                   | —                       |
+| `WEB_BASE_URL`               | Frontend URL                                                              | `http://localhost:3000` |
+| `CORS_ORIGIN`                | Allowed CORS origins (comma-separated)                                    | `http://localhost:3000` |
+| `REGISTRATION_CODE_ADMIN`    | Self-register code that creates an **ADMIN** account                      | `darkk`                 |
+| `REGISTRATION_CODE_EMPLOYEE` | Self-register code that creates an **EMPLOYEE** account                   | `upp`                   |
+| `FILES_STORAGE_ROOT`         | Directory for uploaded documents (cleared on “Delete all data” when safe) | `storage`               |
+
 
 ## API Overview
 
 All endpoints are prefixed with `/api/v1`. Authentication uses HttpOnly cookies.
 
-| Category | Key Endpoints |
-|----------|--------------|
-| Auth | `POST /auth/login`, `POST /auth/register`, `GET /auth/me`, `PUT /auth/profile` |
-| Employees | `GET /employees`, `POST /employees`, `PUT /employees/:id` |
+
+| Category   | Key Endpoints                                                                             |
+| ---------- | ----------------------------------------------------------------------------------------- |
+| Auth       | `POST /auth/login`, `POST /auth/register`, `GET /auth/me`, `PUT /auth/profile`            |
+| Employees  | `GET /employees`, `POST /employees`, `PUT /employees/:id`                                 |
 | Attendance | `POST /attendance/clock-in`, `POST /attendance/clock-out`, `GET /attendance/:id/sessions` |
-| Leave | `POST /leave/request`, `GET /leave/requests`, `PUT /leave/request/:id/approve` |
-| Payroll | `GET /payroll/runs`, `POST /payroll/:month/run`, `GET /payroll/export` |
-| Documents | `POST /documents/upload`, `GET /documents/:employeeId`, `GET /documents/expirations` |
-| Settings | `GET /settings`, `PUT /settings/:key`, `POST /settings/smtp/test` |
-| Reports | `GET /reports/summary`, `GET /reports/attendance` |
+| Leave      | `POST /leave/request`, `GET /leave/requests`, `PUT /leave/request/:id/approve`            |
+| Payroll    | `GET /payroll/runs`, `POST /payroll/:month/run`, `GET /payroll/export`                    |
+| Documents  | `POST /documents/upload`, `GET /documents/:employeeId`, `GET /documents/expirations`      |
+| Settings   | `GET /settings`, `PUT /settings/:key`, `POST /settings/smtp/test`                         |
+| Reports    | `GET /reports/summary`, `GET /reports/attendance`                                         |
+
 
 Full API documentation is available in-app at **Admin > API Docs** or via Swagger at `/api/docs`.
 
@@ -172,7 +182,7 @@ docker compose -f docker-compose.prod.yml up -d
 
 **Database persistence:** Postgres stores data in the Docker volume `pg_data`. Rebuilding images (`build --no-cache`) does not remove it. Avoid `docker compose down -v`, which deletes named volumes and wipes the database.
 
-**Migrations vs seed:** `git pull` only updates code — it never runs Prisma or loads data. The **`migrate`** service (profile **`setup`**) runs `prisma migrate deploy` only (schema changes; migration SQL in this repo has no bundled demo `INSERT`s). Demo users and sample HR rows are added **only** if someone runs **`prisma db seed`** or Compose **`--profile demo`**. The seed script **refuses to run when `NODE_ENV=production`** unless **`ALLOW_DEMO_SEED=true`** is set, so a normal API deploy or migrate job cannot load demo data by accident.
+**Migrations vs seed:** `git pull` only updates code — it never runs Prisma or loads data. The `**migrate`** service (profile `**setup**`) runs `prisma migrate deploy` only (schema changes; migration SQL in this repo has no bundled demo `INSERT`s). Demo users and sample HR rows are added **only** if someone runs `**prisma db seed`** or Compose `**--profile demo**`. The seed script **refuses to run when `NODE_ENV=production`** unless `**ALLOW_DEMO_SEED=true**` is set, so a normal API deploy or migrate job cannot load demo data by accident.
 
 Example routine update (after `git pull`):
 

@@ -119,16 +119,23 @@ export default function ProfilePage() {
     const get = (k: string) => fd.get(k)?.toString() ?? '';
     setSavingPersonal(true);
     try {
-      const payload: Record<string, unknown> = {
-        fullName: get('fullName') || undefined,
-        phone: get('phone') || undefined,
-        personalEmail: get('personalEmail') || null,
-        nationality: get('nationality') || undefined,
-        dateOfBirth: get('dateOfBirth') || undefined,
-      };
-      const ecName = get('ecName');
-      if (ecName) {
-        payload.emergencyContact = { name: ecName, relation: get('ecRelation'), phone: get('ecPhone') };
+      const payload: Record<string, unknown> = isEmployeeRole
+        ? {
+            phone: get('phone') || undefined,
+            personalEmail: get('personalEmail') || null,
+          }
+        : {
+            fullName: get('fullName') || undefined,
+            phone: get('phone') || undefined,
+            personalEmail: get('personalEmail') || null,
+            nationality: get('nationality') || undefined,
+            dateOfBirth: get('dateOfBirth') || undefined,
+          };
+      if (!isEmployeeRole) {
+        const ecName = get('ecName');
+        if (ecName) {
+          payload.emergencyContact = { name: ecName, relation: get('ecRelation'), phone: get('ecPhone') };
+        }
       }
       const res = await apiFetch<{ profile: ProfileData }>('/auth/profile', {
         method: 'PUT',
@@ -139,7 +146,7 @@ export default function ProfilePage() {
         setUser({ ...state.user!, fullName: res.profile.fullName });
       }
       setEditingPersonal(false);
-      toast.success('Personal info updated');
+      toast.success(isEmployeeRole ? 'Contact details updated' : 'Personal info updated');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to update');
     } finally {
@@ -196,6 +203,7 @@ export default function ProfilePage() {
   }
 
   const emp = profile.employee;
+  const isEmployeeRole = profile.role === 'EMPLOYEE';
   const initials = getInitials(profile.fullName, profile.email);
   const profilePhotoUrl =
     profile.employeeId && profile.profilePhotoDocumentId
@@ -305,7 +313,7 @@ export default function ProfilePage() {
               Personal information
             </CardTitle>
             <Button variant="ghost" size="sm" onClick={() => setEditingPersonal(true)}>
-              <Save className="mr-1 h-3 w-3" /> Edit
+              <Save className="mr-1 h-3 w-3" /> {isEmployeeRole ? 'Edit contact details' : 'Edit'}
             </Button>
           </CardHeader>
           <CardContent>
@@ -326,16 +334,33 @@ export default function ProfilePage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <User className="h-4 w-4" />
-              Edit personal information
+              {isEmployeeRole ? 'Edit contact details' : 'Edit personal information'}
             </CardTitle>
+            {isEmployeeRole && (
+              <CardDescription>
+                Name, date of birth, nationality, and emergency contact are maintained by HR after you register.
+              </CardDescription>
+            )}
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSavePersonal} className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="fullName">Full name</Label>
-                  <Input id="fullName" name="fullName" defaultValue={emp.fullName} required />
-                </div>
+                {!isEmployeeRole && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="fullName">Full name</Label>
+                      <Input id="fullName" name="fullName" defaultValue={emp.fullName} required />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="nationality">Nationality</Label>
+                      <Input id="nationality" name="nationality" defaultValue={emp.nationality} />
+                    </div>
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label htmlFor="dateOfBirth">Date of birth</Label>
+                      <Input id="dateOfBirth" name="dateOfBirth" type="date" defaultValue={emp.dateOfBirth?.slice(0, 10)} />
+                    </div>
+                  </>
+                )}
                 <div className="space-y-2">
                   <Label htmlFor="phone">Phone</Label>
                   <Input id="phone" name="phone" defaultValue={emp.phone} required />
@@ -344,31 +369,27 @@ export default function ProfilePage() {
                   <Label htmlFor="personalEmail">Personal email</Label>
                   <Input id="personalEmail" name="personalEmail" type="email" defaultValue={emp.personalEmail ?? ''} />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="nationality">Nationality</Label>
-                  <Input id="nationality" name="nationality" defaultValue={emp.nationality} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="dateOfBirth">Date of birth</Label>
-                  <Input id="dateOfBirth" name="dateOfBirth" type="date" defaultValue={emp.dateOfBirth?.slice(0, 10)} />
-                </div>
               </div>
-              <Separator />
-              <p className="text-sm font-medium">Emergency contact</p>
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div className="space-y-2">
-                  <Label htmlFor="ecName">Name</Label>
-                  <Input id="ecName" name="ecName" defaultValue={profile?.employee?.emergencyContact?.name ?? ''} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="ecRelation">Relation</Label>
-                  <Input id="ecRelation" name="ecRelation" defaultValue={profile?.employee?.emergencyContact?.relation ?? ''} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="ecPhone">Phone</Label>
-                  <Input id="ecPhone" name="ecPhone" defaultValue={profile?.employee?.emergencyContact?.phone ?? ''} />
-                </div>
-              </div>
+              {!isEmployeeRole && (
+                <>
+                  <Separator />
+                  <p className="text-sm font-medium">Emergency contact</p>
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="ecName">Name</Label>
+                      <Input id="ecName" name="ecName" defaultValue={profile?.employee?.emergencyContact?.name ?? ''} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="ecRelation">Relation</Label>
+                      <Input id="ecRelation" name="ecRelation" defaultValue={profile?.employee?.emergencyContact?.relation ?? ''} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="ecPhone">Phone</Label>
+                      <Input id="ecPhone" name="ecPhone" defaultValue={profile?.employee?.emergencyContact?.phone ?? ''} />
+                    </div>
+                  </div>
+                </>
+              )}
               <div className="flex gap-2">
                 <Button type="submit" disabled={savingPersonal}>
                   <Save className="mr-2 h-4 w-4" />
@@ -495,7 +516,9 @@ export default function ProfilePage() {
             </div>
           </div>
           <p className="mt-3 text-xs text-muted-foreground">
-            Work email and role are managed by your HR administrator.
+            {isEmployeeRole
+              ? 'Work email, role, employment details, and HR records are managed by your administrator.'
+              : 'Work email and role for staff accounts are managed in Admin > Employees.'}
           </p>
         </CardContent>
       </Card>

@@ -12,13 +12,13 @@ From `apps/api`:
 pnpm db:migrate
 ```
 
-## Seed initial data
+## Seed (demo / local only)
 
 ```bash
 pnpm db:seed
 ```
 
-The seed script creates:
-- 1 admin user (`admin@uppearance.com`)
-- 5 employee users with varied `dateJoined` / probation statuses and initial `LeaveBalanceSnapshot` rows.
+From `apps/api`, this runs `prisma/seed.ts` (demo admin + sample employee and related rows). **Do not run against production:** if `NODE_ENV=production`, the script exits unless `ALLOW_DEMO_SEED=true`.
+
+**Migrations** (`migrate dev` / `migrate deploy`) never run this seed automatically.
 

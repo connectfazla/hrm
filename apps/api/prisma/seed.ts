@@ -11,8 +11,28 @@ import {
 import bcrypt from "bcrypt";
 import { mergeEmailTemplates } from "../src/mail/email-template-defaults";
 
-/** Demo data only — runs when you explicitly execute `prisma db seed` (or Compose `--profile demo`). Never invoked by `git pull` or `migrate deploy`. */
+/**
+ * Demo / local dataset only. Never run against production.
+ *
+ * - `git commit` does not execute this file — only your Git history changes.
+ * - `prisma migrate deploy` does not run seed.
+ * - This script runs only when someone runs `prisma db seed` (or Compose `--profile demo`).
+ * - If NODE_ENV is `production`, seed exits unless ALLOW_DEMO_SEED=true (intentional override).
+ */
 const prisma = new PrismaClient();
+
+function assertSafeToRunDemoSeed() {
+  const prod = process.env.NODE_ENV === "production";
+  const allowed = process.env.ALLOW_DEMO_SEED === "true";
+  if (prod && !allowed) {
+    console.error(
+      "[seed] Refusing to run: NODE_ENV=production. This script creates demo users and mutates data.\n" +
+        "         Live databases are unaffected by git commits; only migrate deploy applies schema changes.\n" +
+        "         To run seed anyway (never on real prod), set ALLOW_DEMO_SEED=true.",
+    );
+    process.exit(1);
+  }
+}
 
 /** Former multi-employee seed accounts — removed so re-seed leaves only admin + Fazla Rabbi. */
 const LEGACY_SEED_EMPLOYEE_EMAILS = [
@@ -48,6 +68,8 @@ function monthsBetween(a: Date, b: Date) {
 }
 
 async function seed() {
+  assertSafeToRunDemoSeed();
+
   const now = new Date();
   const saltRounds = 10;
 

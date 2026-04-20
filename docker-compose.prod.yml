@@ -80,13 +80,17 @@ services:
     profiles:
       - setup
 
-  # Optional demo dataset — NOT part of profile "setup". Use only when you intentionally want seed users/HR rows.
+  # Optional demo dataset — NOT part of profile "setup". Blocked unless ALLOW_DEMO_SEED=true (see prisma/seed.ts).
   seed:
     <<: *migrate_env
     command: >
       sh -c "npx prisma db seed"
     profiles:
       - demo
+    environment:
+      DATABASE_URL: postgresql://${DB_USER:-uppearance}:${DB_PASSWORD:-uppearance}@postgres:5432/${DB_NAME:-uppearance_hrms}
+      NODE_ENV: production
+      ALLOW_DEMO_SEED: ${ALLOW_DEMO_SEED:-false}
 
 volumes:
   pg_data:

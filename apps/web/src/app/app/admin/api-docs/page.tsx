@@ -45,7 +45,13 @@ const CATEGORIES: Category[] = [
       { method: 'POST', path: '/auth/forgot-password', description: 'Request a password reset email.', auth: 'Public' },
       { method: 'POST', path: '/auth/reset-password', description: 'Complete password reset with token.', auth: 'Public' },
       { method: 'GET', path: '/auth/me', description: 'Return the current user profile.', auth: 'Authenticated' },
-      { method: 'PUT', path: '/auth/profile', description: 'Update the current user profile.', auth: 'Authenticated' },
+      {
+        method: 'PUT',
+        path: '/auth/profile',
+        description:
+          'Update profile: password, and for EMPLOYEE only phone + personalEmail. Admins may also update name, nationality, DOB, emergency contact, and sign-in email.',
+        auth: 'Authenticated',
+      },
     ],
   },
   {
@@ -80,6 +86,13 @@ const CATEGORIES: Category[] = [
       { method: 'PUT', path: '/leave/request/:id/approve', description: 'Approve a leave request.', auth: 'Admin / HR' },
       { method: 'PUT', path: '/leave/request/:id/reject', description: 'Reject a leave request.', auth: 'Admin / HR' },
       { method: 'GET', path: '/leave/balances/:employeeId', description: 'Get leave balances for an employee.', auth: 'Authenticated' },
+      {
+        method: 'PUT',
+        path: '/leave/balances/:employeeId',
+        description:
+          'Admin: adjust stored snapshot fields (paidAccruedDays, paidAnnualDays, carryOverDays, paidUsedDays, emergencyUnpaidRemainingDays, unpaidUsedDays).',
+        auth: 'Admin / HR',
+      },
     ],
   },
   {

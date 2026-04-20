@@ -292,7 +292,12 @@ export class EmployeesService {
     return this.prisma.$transaction(async (tx) => {
       const existing = await tx.employee.findUnique({
         where: { id },
-        include: { compensation: true, bankAccount: true, emergencyContact: true },
+        include: {
+          compensation: true,
+          bankAccount: true,
+          emergencyContact: true,
+          user: { select: { id: true, email: true } },
+        },
       });
 
       if (!existing) throw new NotFoundException("Employee not found");
@@ -415,6 +420,13 @@ export class EmployeesService {
           salaryHistory: { orderBy: { effectiveDate: "desc" } },
         },
       });
+
+      if (payload.workEmail != null && payload.workEmail !== existing.workEmail && existing.user) {
+        await tx.user.update({
+          where: { id: existing.user.id },
+          data: { email: payload.workEmail },
+        });
+      }
 
       await tx.auditLog.create({
         data: {

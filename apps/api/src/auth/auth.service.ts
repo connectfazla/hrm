@@ -507,6 +507,18 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new UnauthorizedException("User not found");
 
+    if (user.role === Role.EMPLOYEE) {
+      const hrOnly =
+        data.email !== undefined ||
+        data.fullName !== undefined ||
+        data.nationality !== undefined ||
+        data.dateOfBirth !== undefined ||
+        data.emergencyContact !== undefined;
+      if (hrOnly) {
+        throw new ForbiddenException("That information is managed by HR. Contact your administrator to change it.");
+      }
+    }
+
     const userUpdate: any = {};
     if (data.email) userUpdate.email = data.email;
     if (data.newPassword) {
@@ -521,26 +533,36 @@ export class AuthService {
     }
 
     if (user.employeeId) {
-      const empUpdate: any = {};
-      if (data.fullName) empUpdate.fullName = data.fullName;
-      if (data.phone) empUpdate.phone = data.phone;
-      if (data.personalEmail !== undefined) empUpdate.personalEmail = data.personalEmail;
-      if (data.nationality) empUpdate.nationality = data.nationality;
-      if (data.dateOfBirth) empUpdate.dateOfBirth = new Date(data.dateOfBirth);
+      if (user.role === Role.EMPLOYEE) {
+        const empUpdate: any = {};
+        if (data.phone) empUpdate.phone = data.phone;
+        if (data.personalEmail !== undefined) empUpdate.personalEmail = data.personalEmail;
 
-      if (Object.keys(empUpdate).length > 0) {
-        await this.prisma.employee.update({ where: { id: user.employeeId }, data: empUpdate });
-      }
+        if (Object.keys(empUpdate).length > 0) {
+          await this.prisma.employee.update({ where: { id: user.employeeId }, data: empUpdate });
+        }
+      } else {
+        const empUpdate: any = {};
+        if (data.fullName) empUpdate.fullName = data.fullName;
+        if (data.phone) empUpdate.phone = data.phone;
+        if (data.personalEmail !== undefined) empUpdate.personalEmail = data.personalEmail;
+        if (data.nationality) empUpdate.nationality = data.nationality;
+        if (data.dateOfBirth) empUpdate.dateOfBirth = new Date(data.dateOfBirth);
 
-      if (data.emergencyContact !== undefined) {
-        if (data.emergencyContact) {
-          await this.prisma.emergencyContact.upsert({
-            where: { employeeId: user.employeeId },
-            create: { employeeId: user.employeeId, ...data.emergencyContact },
-            update: data.emergencyContact,
-          });
-        } else {
-          await this.prisma.emergencyContact.deleteMany({ where: { employeeId: user.employeeId } });
+        if (Object.keys(empUpdate).length > 0) {
+          await this.prisma.employee.update({ where: { id: user.employeeId }, data: empUpdate });
+        }
+
+        if (data.emergencyContact !== undefined) {
+          if (data.emergencyContact) {
+            await this.prisma.emergencyContact.upsert({
+              where: { employeeId: user.employeeId },
+              create: { employeeId: user.employeeId, ...data.emergencyContact },
+              update: data.emergencyContact,
+            });
+          } else {
+            await this.prisma.emergencyContact.deleteMany({ where: { employeeId: user.employeeId } });
+          }
         }
       }
     }

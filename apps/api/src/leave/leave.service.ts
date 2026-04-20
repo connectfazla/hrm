@@ -244,6 +244,41 @@ export class LeaveService {
     return snapshot;
   }
 
+  /** Admin correction of the latest balance snapshot (same row updated in place). */
+  async adjustSnapshotBalances(
+    employeeId: string,
+    patch: Partial<{
+      paidAccruedDays: number;
+      paidAnnualDays: number;
+      carryOverDays: number;
+      paidUsedDays: number;
+      emergencyUnpaidRemainingDays: number;
+      unpaidUsedDays: number;
+    }>,
+  ) {
+    const snap = await this.getLatestSnapshot(employeeId);
+    const data: Record<string, number> = {};
+    const keys = [
+      "paidAccruedDays",
+      "paidAnnualDays",
+      "carryOverDays",
+      "paidUsedDays",
+      "emergencyUnpaidRemainingDays",
+      "unpaidUsedDays",
+    ] as const;
+    for (const k of keys) {
+      if (patch[k] !== undefined) {
+        const n = Math.floor(Number(patch[k]));
+        data[k] = Number.isFinite(n) && n >= 0 ? n : 0;
+      }
+    }
+    if (Object.keys(data).length === 0) return snap;
+    return this.prisma.leaveBalanceSnapshot.update({
+      where: { id: snap.id },
+      data,
+    });
+  }
+
   async listRequests(role: Role, employeeId: string | null, status?: LeaveStatus) {
     if (role === Role.ADMIN) {
       const where: any = {};

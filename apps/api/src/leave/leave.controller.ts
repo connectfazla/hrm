@@ -28,6 +28,17 @@ const decisionSchema = z.object({
   comment: z.string().min(3),
 });
 
+const adjustBalanceSchema = z
+  .object({
+    paidAccruedDays: z.number().int().nonnegative().optional(),
+    paidAnnualDays: z.number().int().nonnegative().optional(),
+    carryOverDays: z.number().int().nonnegative().optional(),
+    paidUsedDays: z.number().int().nonnegative().optional(),
+    emergencyUnpaidRemainingDays: z.number().int().nonnegative().optional(),
+    unpaidUsedDays: z.number().int().nonnegative().optional(),
+  })
+  .strict();
+
 type RequestWithUser = Request & {
   user?: { userId: string; role: Role; employeeId?: string | null };
 };
@@ -117,6 +128,22 @@ export class LeaveController {
     const actorEmployeeId = req.user!.employeeId ?? null;
 
     const snapshot = await this.leave.getBalances(role, actorEmployeeId, employeeId);
+    return res.json({ snapshot });
+  }
+
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Put("balances/:employeeId")
+  async adjustBalances(
+    @Req() req: RequestWithUser,
+    @Param("employeeId") employeeId: string,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const parsed = adjustBalanceSchema.safeParse(body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid leave balance payload" });
+
+    const snapshot = await this.leave.adjustSnapshotBalances(employeeId, parsed.data);
     return res.json({ snapshot });
   }
 }

@@ -85,6 +85,15 @@ type LeaveRecord = {
   status: string;
 };
 
+type LeaveBalanceState = {
+  paidAccruedDays: number;
+  paidAnnualDays: number;
+  carryOverDays: number;
+  paidUsedDays: number;
+  emergencyUnpaidRemainingDays: number;
+  unpaidUsedDays: number;
+};
+
 type AttendanceRecord = {
   id: string;
   clockInAt: string;
@@ -123,13 +132,12 @@ export default function EmployeeDetailPage() {
   const [docs, setDocs] = React.useState<DocRecord[]>([]);
   const [leaves, setLeaves] = React.useState<LeaveRecord[]>([]);
   const [attendance, setAttendance] = React.useState<AttendanceRecord[]>([]);
-  const [leaveBalance, setLeaveBalance] = React.useState<{
-    paidAccruedDays: number; paidAnnualDays: number; carryOverDays: number;
-    paidUsedDays: number; emergencyUnpaidRemainingDays: number; unpaidUsedDays: number;
-  } | null>(null);
+  const [leaveBalance, setLeaveBalance] = React.useState<LeaveBalanceState | null>(null);
   const [editing, setEditing] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
+  const [savingLeaveBalances, setSavingLeaveBalances] = React.useState(false);
+  const [leaveBalanceFormNonce, setLeaveBalanceFormNonce] = React.useState(0);
   const [activeTab, setActiveTab] = React.useState('overview');
   const [archiveOpen, setArchiveOpen] = React.useState(false);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
@@ -143,8 +151,8 @@ export default function EmployeeDetailPage() {
       .then((r) => setEmp(r.employee))
       .catch(() => toast.error('Failed to load employee'))
       .finally(() => setLoading(false));
-    apiFetch<any>(`/leave/balances/${id}`)
-      .then((r) => setLeaveBalance(r))
+    apiFetch<{ snapshot: LeaveBalanceState }>(`/leave/balances/${id}`)
+      .then((r) => setLeaveBalance(r.snapshot))
       .catch(() => {});
   }, [id]);
 
@@ -178,6 +186,14 @@ export default function EmployeeDetailPage() {
       department: get('department'),
       phone: get('phone'),
       nationality: get('nationality'),
+      personalEmail: get('personalEmail') || null,
+      workEmail: get('workEmail'),
+      dateOfBirth: get('dateOfBirth'),
+      dateJoined: get('dateJoined'),
+      emiratesIdNumber: get('emiratesIdNumber'),
+      emiratesIdExpiryDate: get('emiratesIdExpiryDate'),
+      passportNumber: get('passportNumber'),
+      passportExpiryDate: get('passportExpiryDate'),
       employmentType: get('employmentType'),
       notes: get('notes') || null,
       baseSalary: Number(get('baseSalary')),
@@ -207,6 +223,37 @@ export default function EmployeeDetailPage() {
       toast.error((err as Error).message);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSaveLeaveBalances = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const num = (k: string) => {
+      const v = fd.get(k)?.toString() ?? '';
+      const n = parseInt(v, 10);
+      return Number.isFinite(n) && n >= 0 ? n : 0;
+    };
+    setSavingLeaveBalances(true);
+    try {
+      const res = await apiFetch<{ snapshot: LeaveBalanceState }>(`/leave/balances/${id}`, {
+        method: 'PUT',
+        json: {
+          paidAccruedDays: num('paidAccruedDays'),
+          paidAnnualDays: num('paidAnnualDays'),
+          carryOverDays: num('carryOverDays'),
+          paidUsedDays: num('paidUsedDays'),
+          emergencyUnpaidRemainingDays: num('emergencyUnpaidRemainingDays'),
+          unpaidUsedDays: num('unpaidUsedDays'),
+        },
+      });
+      setLeaveBalance(res.snapshot);
+      setLeaveBalanceFormNonce((n) => n + 1);
+      toast.success('Leave balances updated');
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setSavingLeaveBalances(false);
     }
   };
 
@@ -332,6 +379,44 @@ export default function EmployeeDetailPage() {
               <div className="space-y-2"><Label>Name</Label><Input name="emergencyName" defaultValue={emp.emergencyContact?.name ?? ''} /></div>
               <div className="space-y-2"><Label>Relation</Label><Input name="emergencyRelation" defaultValue={emp.emergencyContact?.relation ?? ''} /></div>
               <div className="space-y-2"><Label>Phone</Label><Input name="emergencyPhone" defaultValue={emp.emergencyContact?.phone ?? ''} /></div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle className="text-base">National ID, passport & dates</CardTitle></CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2"><Label>Personal email</Label><Input name="personalEmail" type="email" defaultValue={emp.personalEmail ?? ''} /></div>
+              <div className="space-y-2"><Label>Work email</Label><Input name="workEmail" type="email" defaultValue={emp.workEmail} required /></div>
+              <div className="space-y-2"><Label>Date of birth</Label><Input name="dateOfBirth" type="date" defaultValue={emp.dateOfBirth?.slice(0, 10)} required /></div>
+              <div className="space-y-2"><Label>Date joined</Label><Input name="dateJoined" type="date" defaultValue={emp.dateJoined?.slice(0, 10)} required /></div>
+              <div className="space-y-2"><Label>NID</Label><Input name="emiratesIdNumber" defaultValue={emp.emiratesIdNumber} required /></div>
+              <div className="space-y-2"><Label>NID expiry</Label><Input name="emiratesIdExpiryDate" type="date" defaultValue={emp.emiratesIdExpiryDate?.slice(0, 10)} required /></div>
+              <div className="space-y-2"><Label>Passport number</Label><Input name="passportNumber" defaultValue={emp.passportNumber} required /></div>
+              <div className="space-y-2"><Label>Passport expiry</Label><Input name="passportExpiryDate" type="date" defaultValue={emp.passportExpiryDate?.slice(0, 10)} required /></div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Leave balance (admin)</CardTitle>
+              <CardDescription>
+                Adjust stored leave totals for this employee (current snapshot row). Use when correcting accrual or data migration.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form key={leaveBalanceFormNonce} onSubmit={(ev) => void handleSaveLeaveBalances(ev)} className="space-y-4">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="space-y-2"><Label>Paid accrued days</Label><Input name="paidAccruedDays" type="number" min={0} defaultValue={leaveBalance?.paidAccruedDays ?? 0} required /></div>
+                  <div className="space-y-2"><Label>Paid annual days</Label><Input name="paidAnnualDays" type="number" min={0} defaultValue={leaveBalance?.paidAnnualDays ?? 0} required /></div>
+                  <div className="space-y-2"><Label>Carry-over days</Label><Input name="carryOverDays" type="number" min={0} defaultValue={leaveBalance?.carryOverDays ?? 0} required /></div>
+                  <div className="space-y-2"><Label>Paid days used</Label><Input name="paidUsedDays" type="number" min={0} defaultValue={leaveBalance?.paidUsedDays ?? 0} required /></div>
+                  <div className="space-y-2"><Label>Emergency unpaid remaining</Label><Input name="emergencyUnpaidRemainingDays" type="number" min={0} defaultValue={leaveBalance?.emergencyUnpaidRemainingDays ?? 0} required /></div>
+                  <div className="space-y-2"><Label>Unpaid days used</Label><Input name="unpaidUsedDays" type="number" min={0} defaultValue={leaveBalance?.unpaidUsedDays ?? 0} required /></div>
+                </div>
+                <Button type="submit" variant="secondary" disabled={savingLeaveBalances}>
+                  {savingLeaveBalances ? 'Saving…' : 'Save leave balances'}
+                </Button>
+              </form>
             </CardContent>
           </Card>
 

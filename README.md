@@ -161,6 +161,8 @@ Full API documentation is available in-app at **Admin > API Docs** or via Swagge
 
 ## Production Deployment
 
+**Git commits do not touch your database.** Pushing code only updates the repository. Nothing in the default API container startup or in `prisma migrate deploy` runs the seed script or adds demo employees.
+
 ```bash
 cp .env.production.example .env.production
 # Edit .env.production with production values
@@ -170,7 +172,7 @@ docker compose -f docker-compose.prod.yml up -d
 
 **Database persistence:** Postgres stores data in the Docker volume `pg_data`. Rebuilding images (`build --no-cache`) does not remove it. Avoid `docker compose down -v`, which deletes named volumes and wipes the database.
 
-**Migrations vs seed:** `git pull` only updates code — it never runs Prisma or loads data. The **`migrate`** service (profile **`setup`**) runs `prisma migrate deploy` only. Bundled demo users and sample HR rows exist only if someone explicitly runs **`prisma db seed`** (e.g. local dev) or Compose profile **`demo`** — that profile is separate from **`setup`**, so a normal deploy (`--profile setup run migrate`) **cannot** import demo data by mistake.
+**Migrations vs seed:** `git pull` only updates code — it never runs Prisma or loads data. The **`migrate`** service (profile **`setup`**) runs `prisma migrate deploy` only (schema changes; migration SQL in this repo has no bundled demo `INSERT`s). Demo users and sample HR rows are added **only** if someone runs **`prisma db seed`** or Compose **`--profile demo`**. The seed script **refuses to run when `NODE_ENV=production`** unless **`ALLOW_DEMO_SEED=true`** is set, so a normal API deploy or migrate job cannot load demo data by accident.
 
 Example routine update (after `git pull`):
 
@@ -181,11 +183,13 @@ docker compose --profile setup -f docker-compose.prod.yml run --rm migrate
 docker compose -f docker-compose.prod.yml up -d
 ```
 
-Optional demo dataset (local/staging only — **do not** use on a production DB you care about):
+Optional demo dataset (empty DBs / staging only — **never** point at live prod):
 
 ```bash
-docker compose --profile demo -f docker-compose.prod.yml run --rm seed
+ALLOW_DEMO_SEED=true docker compose --profile demo -f docker-compose.prod.yml run --rm seed
 ```
+
+Without `ALLOW_DEMO_SEED=true`, the seed container exits immediately when `NODE_ENV=production` (as set in Compose for that service).
 
 ## Currency
 

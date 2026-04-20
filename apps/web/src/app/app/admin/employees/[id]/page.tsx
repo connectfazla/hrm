@@ -94,6 +94,26 @@ type LeaveBalanceState = {
   unpaidUsedDays: number;
 };
 
+/** Coerce API snapshot fields so React math in the overview card never string-concatenates. */
+function normalizeLeaveBalanceSnapshot(raw: unknown): LeaveBalanceState | null {
+  if (raw == null || typeof raw !== 'object') return null;
+  const o = raw as Record<string, unknown>;
+  const int = (key: string): number => {
+    const v = o[key];
+    const n = typeof v === 'number' ? v : Number(v);
+    if (!Number.isFinite(n) || n < 0) return 0;
+    return Math.floor(n);
+  };
+  return {
+    paidAccruedDays: int('paidAccruedDays'),
+    paidAnnualDays: int('paidAnnualDays'),
+    carryOverDays: int('carryOverDays'),
+    paidUsedDays: int('paidUsedDays'),
+    emergencyUnpaidRemainingDays: int('emergencyUnpaidRemainingDays'),
+    unpaidUsedDays: int('unpaidUsedDays'),
+  };
+}
+
 type AttendanceRecord = {
   id: string;
   clockInAt: string;
@@ -147,15 +167,22 @@ export default function EmployeeDetailPage() {
   const myEmployeeId = authState.status === 'authenticated' ? authState.user.employeeId : null;
   const isSelf = Boolean(myEmployeeId && myEmployeeId === id);
 
+  const loadLeaveBalance = React.useCallback(async () => {
+    try {
+      const r = await apiFetch<{ snapshot: unknown }>(`/leave/balances/${id}`);
+      setLeaveBalance(normalizeLeaveBalanceSnapshot(r.snapshot));
+    } catch {
+      /* keep prior snapshot if any */
+    }
+  }, [id]);
+
   React.useEffect(() => {
     apiFetch<{ employee: EmployeeDetail }>(`/employees/${id}`)
       .then((r) => setEmp(r.employee))
       .catch(() => toast.error('Failed to load employee'))
       .finally(() => setLoading(false));
-    apiFetch<{ snapshot: LeaveBalanceState }>(`/leave/balances/${id}`)
-      .then((r) => setLeaveBalance(r.snapshot))
-      .catch(() => {});
-  }, [id]);
+    void loadLeaveBalance();
+  }, [id, loadLeaveBalance]);
 
   // Lazy-load tab data
   React.useEffect(() => {
@@ -238,7 +265,7 @@ export default function EmployeeDetailPage() {
     };
     setSavingLeaveBalances(true);
     try {
-      const res = await apiFetch<{ snapshot: LeaveBalanceState }>(`/leave/balances/${id}`, {
+      await apiFetch<{ snapshot: unknown }>(`/leave/balances/${id}`, {
         method: 'PUT',
         json: {
           paidAccruedDays: num('paidAccruedDays'),
@@ -249,7 +276,8 @@ export default function EmployeeDetailPage() {
           unpaidUsedDays: num('unpaidUsedDays'),
         },
       });
-      setLeaveBalance(res.snapshot);
+      // Re-read from API so Overview "Leave Balance" and form defaults stay in sync with DB.
+      await loadLeaveBalance();
       setLeaveBalanceFormNonce((n) => n + 1);
       toast.success('Leave balances updated');
     } catch (err) {
@@ -449,6 +477,15 @@ export default function EmployeeDetailPage() {
 
   const totalComp = Number(emp.compensation?.baseSalary ?? 0) + Number(emp.compensation?.allowances ?? 0);
   const yearsAtCompany = Math.max(0, Math.round((Date.now() - new Date(emp.dateJoined).getTime()) / (365.25 * 86400000) * 10) / 10);
+  const leavePaidDaysLeft = leaveBalance
+    ? Math.max(
+        0,
+        Number(leaveBalance.paidAccruedDays) +
+          Number(leaveBalance.paidAnnualDays) +
+          Number(leaveBalance.carryOverDays) -
+          Number(leaveBalance.paidUsedDays),
+      )
+    : 0;
 
   return (
     <div className="space-y-6">
@@ -702,17 +739,19 @@ export default function EmployeeDetailPage() {
               <CardContent>
                 <div className="grid gap-4 sm:grid-cols-3">
                   <div className="text-center p-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/20">
-                    <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-                      {Math.max(0, (leaveBalance.paidAccruedDays + leaveBalance.paidAnnualDays + leaveBalance.carryOverDays) - leaveBalance.paidUsedDays)}
-                    </p>
+                    <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{leavePaidDaysLeft}</p>
                     <p className="text-xs text-muted-foreground">Paid Days Left</p>
                   </div>
                   <div className="text-center p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20">
-                    <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{leaveBalance.paidUsedDays}</p>
+                    <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">
+                      {Number(leaveBalance.paidUsedDays)}
+                    </p>
                     <p className="text-xs text-muted-foreground">Paid Days Used</p>
                   </div>
                   <div className="text-center p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20">
-                    <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{leaveBalance.emergencyUnpaidRemainingDays}</p>
+                    <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                      {Number(leaveBalance.emergencyUnpaidRemainingDays)}
+                    </p>
                     <p className="text-xs text-muted-foreground">Emergency Days Left</p>
                   </div>
                 </div>

@@ -325,12 +325,18 @@ const dashNav = [
 ];
 
 function DashboardMock() {
-  const today = new Date().toLocaleDateString('en-GB', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
+  const [today, setToday] = React.useState('');
+
+  React.useEffect(() => {
+    setToday(
+      new Date().toLocaleDateString('en-GB', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      }),
+    );
+  }, []);
 
   return (
     <div className="mx-auto w-full max-w-[980px]">
@@ -404,7 +410,9 @@ function DashboardMock() {
           <div className="min-w-0 flex-1 bg-white p-3 sm:p-4">
             <div className="mb-3 sm:mb-4">
               <h3 className="text-sm font-bold text-[#1a1033] sm:text-base">Welcome back, Fazla</h3>
-              <p className="text-[0.65rem] text-[#6b7280] sm:text-xs">{today}</p>
+              <p className="text-[0.65rem] text-[#6b7280] sm:text-xs" suppressHydrationWarning>
+                {today}
+              </p>
             </div>
 
             <div className="mb-3 grid grid-cols-2 gap-2 lg:grid-cols-4">

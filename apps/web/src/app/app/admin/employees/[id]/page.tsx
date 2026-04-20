@@ -138,6 +138,7 @@ export default function EmployeeDetailPage() {
   const [saving, setSaving] = React.useState(false);
   const [savingLeaveBalances, setSavingLeaveBalances] = React.useState(false);
   const [leaveBalanceFormNonce, setLeaveBalanceFormNonce] = React.useState(0);
+  const leaveBalanceFieldsRef = React.useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = React.useState('overview');
   const [archiveOpen, setArchiveOpen] = React.useState(false);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
@@ -226,11 +227,12 @@ export default function EmployeeDetailPage() {
     }
   };
 
-  const handleSaveLeaveBalances = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const fd = new FormData(e.currentTarget);
+  const handleSaveLeaveBalances = async () => {
+    const root = leaveBalanceFieldsRef.current;
+    if (!root) return;
     const num = (k: string) => {
-      const v = fd.get(k)?.toString() ?? '';
+      const el = root.querySelector<HTMLInputElement>(`input[name="${k}"]`);
+      const v = el?.value ?? '';
       const n = parseInt(v, 10);
       return Number.isFinite(n) && n >= 0 ? n : 0;
     };
@@ -404,7 +406,8 @@ export default function EmployeeDetailPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form key={leaveBalanceFormNonce} onSubmit={(ev) => void handleSaveLeaveBalances(ev)} className="space-y-4">
+              {/* Not a nested <form>: HTML forbids forms inside the employee edit form; a nested form breaks submit behavior. */}
+              <div key={leaveBalanceFormNonce} ref={leaveBalanceFieldsRef} className="space-y-4">
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   <div className="space-y-2"><Label>Paid accrued days</Label><Input name="paidAccruedDays" type="number" min={0} defaultValue={leaveBalance?.paidAccruedDays ?? 0} required /></div>
                   <div className="space-y-2"><Label>Paid annual days</Label><Input name="paidAnnualDays" type="number" min={0} defaultValue={leaveBalance?.paidAnnualDays ?? 0} required /></div>
@@ -413,10 +416,10 @@ export default function EmployeeDetailPage() {
                   <div className="space-y-2"><Label>Emergency unpaid remaining</Label><Input name="emergencyUnpaidRemainingDays" type="number" min={0} defaultValue={leaveBalance?.emergencyUnpaidRemainingDays ?? 0} required /></div>
                   <div className="space-y-2"><Label>Unpaid days used</Label><Input name="unpaidUsedDays" type="number" min={0} defaultValue={leaveBalance?.unpaidUsedDays ?? 0} required /></div>
                 </div>
-                <Button type="submit" variant="secondary" disabled={savingLeaveBalances}>
+                <Button type="button" variant="secondary" disabled={savingLeaveBalances} onClick={() => void handleSaveLeaveBalances()}>
                   {savingLeaveBalances ? 'Saving…' : 'Save leave balances'}
                 </Button>
-              </form>
+              </div>
             </CardContent>
           </Card>
 

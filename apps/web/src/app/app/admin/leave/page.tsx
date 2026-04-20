@@ -45,6 +45,41 @@ type LeaveBalance = {
   unpaidUsed: number;
 };
 
+/** API returns `{ snapshot }` — map to the summary shape this page uses. */
+type ApiLeaveSnapshot = {
+  paidAccruedDays: number;
+  paidAnnualDays: number;
+  carryOverDays: number;
+  paidUsedDays: number;
+  emergencyUnpaidRemainingDays: number;
+  unpaidUsedDays: number;
+  breakdown?: { sick?: { fullUsed?: number; halfUsed?: number; unpaidUsed?: number } } | null;
+};
+
+function snapshotToUiBalance(s: ApiLeaveSnapshot): LeaveBalance {
+  const annualTotal = s.paidAccruedDays + s.paidAnnualDays + s.carryOverDays;
+  const annualUsed = s.paidUsedDays;
+  const annualRemaining = Math.max(0, annualTotal - annualUsed);
+  const sick = s.breakdown?.sick;
+  const sickUsed = Math.round(
+    (sick?.fullUsed ?? 0) + (sick?.halfUsed ?? 0) * 0.5 + (sick?.unpaidUsed ?? 0),
+  );
+  const emergencyUsed = Math.max(0, 30 - s.emergencyUnpaidRemainingDays);
+  return {
+    annualTotal,
+    annualUsed,
+    annualRemaining,
+    sickUsed,
+    emergencyUsed,
+    unpaidUsed: s.unpaidUsedDays,
+  };
+}
+
+async function fetchEmployeeLeaveBalanceUi(employeeId: string): Promise<LeaveBalance> {
+  const res = await apiFetch<{ snapshot: ApiLeaveSnapshot }>(`/leave/balances/${employeeId}`);
+  return snapshotToUiBalance(res.snapshot);
+}
+
 type EmployeeBalance = {
   employee: Employee;
   balances: LeaveBalance | null;
@@ -111,9 +146,9 @@ export default function AdminLeavePage() {
 
     Promise.allSettled(
       missing.map((id) =>
-        apiFetch<{ balances: LeaveBalance }>(`/leave/balances/${id}`).then((res) => ({
+        fetchEmployeeLeaveBalanceUi(id).then((balances) => ({
           id,
-          balances: res.balances,
+          balances,
         })),
       ),
     ).then((results) => {
@@ -137,9 +172,9 @@ export default function AdminLeavePage() {
         setEmployees(staff);
         const results = await Promise.allSettled(
           staff.map((emp) =>
-            apiFetch<{ balances: LeaveBalance }>(`/leave/balances/${emp.id}`).then((r) => ({
+            fetchEmployeeLeaveBalanceUi(emp.id).then((balances) => ({
               id: emp.id,
-              balances: r.balances,
+              balances,
             })),
           ),
         );

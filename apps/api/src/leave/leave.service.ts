@@ -255,7 +255,12 @@ export class LeaveService {
       emergencyUnpaidRemainingDays: number;
       unpaidUsedDays: number;
     }>,
+    actorRole: Role,
   ) {
+    if (actorRole !== Role.ADMIN) {
+      throw new ForbiddenException("Only administrators can adjust leave balances");
+    }
+
     const snap = await this.getLatestSnapshot(employeeId);
     const data: Record<string, number> = {};
     const keys = [

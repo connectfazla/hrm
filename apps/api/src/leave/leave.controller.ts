@@ -30,12 +30,12 @@ const decisionSchema = z.object({
 
 const adjustBalanceSchema = z
   .object({
-    paidAccruedDays: z.number().int().nonnegative().optional(),
-    paidAnnualDays: z.number().int().nonnegative().optional(),
-    carryOverDays: z.number().int().nonnegative().optional(),
-    paidUsedDays: z.number().int().nonnegative().optional(),
-    emergencyUnpaidRemainingDays: z.number().int().nonnegative().optional(),
-    unpaidUsedDays: z.number().int().nonnegative().optional(),
+    paidAccruedDays: z.coerce.number().int().nonnegative().optional(),
+    paidAnnualDays: z.coerce.number().int().nonnegative().optional(),
+    carryOverDays: z.coerce.number().int().nonnegative().optional(),
+    paidUsedDays: z.coerce.number().int().nonnegative().optional(),
+    emergencyUnpaidRemainingDays: z.coerce.number().int().nonnegative().optional(),
+    unpaidUsedDays: z.coerce.number().int().nonnegative().optional(),
   })
   .strict();
 
@@ -143,7 +143,7 @@ export class LeaveController {
     const parsed = adjustBalanceSchema.safeParse(body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid leave balance payload" });
 
-    const snapshot = await this.leave.adjustSnapshotBalances(employeeId, parsed.data);
+    const snapshot = await this.leave.adjustSnapshotBalances(employeeId, parsed.data, req.user!.role);
     return res.json({ snapshot });
   }
 }
